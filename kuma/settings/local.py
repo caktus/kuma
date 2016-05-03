@@ -29,3 +29,6 @@ ES_LIVE_INDEX = True
 # Don't cache non-versioned static files in DEBUG mode
 if DEBUG:
     WHITENOISE_MAX_AGE = 0
+
+# Send tasks to celery workers
+CELERY_ALWAYS_EAGER = False
