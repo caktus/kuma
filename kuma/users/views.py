@@ -21,6 +21,7 @@ from honeypot.decorators import verify_honeypot_value
 from taggit.utils import parse_tags
 
 from kuma.core.decorators import login_required
+from kuma.core.utils import paginate
 
 from .forms import UserBanForm, UserEditForm
 from .models import User, UserBan
@@ -80,8 +81,30 @@ def ban_user(request, user_id):
     return render(request,
                   'users/ban_user.html',
                   {'form': form,
-                   'user_to_ban': user,
+                   'detail_user': user,
                    'common_reasons': common_reasons})
+
+
+def ban_user_and_cleanup(request, user_id):
+    """
+    A page to ban a user for the reason of "Spam" and mark the user's revisions
+    and page creations as spam, reverting as many of them as possible.
+    """
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        raise Http404
+
+    revisions = user.created_revisions.prefetch_related('document').defer('content', 'summary').order_by('-created')
+    revisions = paginate(request, revisions, per_page=10)
+
+    return render(request,
+                  'users/ban_user_and_cleanup.html',
+                  {'detail_user': user,
+                   'revisions': revisions,
+                   'show_spam_submission': False,
+                   'show_author': False,
+                   'spam_ban_page': True})
 
 
 def user_detail(request, username):
