@@ -14,6 +14,7 @@ from taggit.utils import parse_tags
 
 import kuma.wiki.content
 from kuma.core.form_fields import StrippedCharField
+from kuma.core.urlresolvers import reverse
 from kuma.spam.forms import AkismetCheckFormMixin, AkismetSubmissionFormMixin
 
 from .constants import (DOCUMENT_PATH_RE, INVALID_DOC_SLUG_CHARS_RE,
@@ -59,8 +60,10 @@ COMMENT_LONG = _(u'Please keep the length of the comment to '
 SLUG_COLLIDES = _(u'Another document with this slug already exists.')
 OTHER_COLLIDES = _(u'Another document with this metadata already exists.')
 
-MIDAIR_COLLISION = _(u'This document was modified while you were '
-                     u'editing it.')
+MIDAIR_COLLISION = _(u'Publishing failed. Conflicting edit attempts detected. '
+                     u'Please copy and paste your edits to a safe place and '
+                     u'visit the <a href="%(url)s">revision history</a> page '
+                     u'to see what was changed before making further edits.')
 MOVE_REQUIRED = _(u"Changing this document's slug requires "
                   u"moving it and its children.")
 
@@ -406,13 +409,21 @@ class RevisionForm(AkismetCheckFormMixin, forms.ModelForm):
                     if orig_ct != curr_ct:
                         # Oops. Looks like the section did actually get
                         # changed, so yeah this is a collision.
-                        raise forms.ValidationError(MIDAIR_COLLISION)
+                        url = reverse(
+                            'wiki.document_revisions',
+                            kwargs={'document_path': self.instance.document.slug}
+                        )
+                        raise forms.ValidationError(MIDAIR_COLLISION % {'url': url})
 
                     return current_rev
 
                 else:
                     # No section edit, so this is a flat-out collision.
-                    raise forms.ValidationError(MIDAIR_COLLISION)
+                    url = reverse(
+                        'wiki.document_revisions',
+                        kwargs={'document_path': self.instance.document.slug}
+                    )
+                    raise forms.ValidationError(MIDAIR_COLLISION % {'url': url})
 
         except Document.DoesNotExist:
             # If there's no document yet, just bail.
