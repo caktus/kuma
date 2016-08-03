@@ -472,7 +472,7 @@ class NewRevisionTests(UserTestCase, WikiTestCase):
             'slug': self.d.slug,
             'toc_depth': 1,
             'based_on': self.d.current_revision.id,
-            'form': 'rev',
+            'form-type': 'rev',
         }
         edit_url = reverse('wiki.edit', args=[self.d.slug])
         response = self.client.post(edit_url, data)
@@ -524,7 +524,7 @@ class NewRevisionTests(UserTestCase, WikiTestCase):
         self.d.save()
         tags = ['tag1', 'tag2', 'tag3']
         data = new_document_data(tags)
-        data['form'] = 'rev'
+        data['form-type'] = 'rev'
         response = self.client.post(reverse('wiki.edit',
                                     args=[self.d.slug]), data)
         eq_(302, response.status_code)
@@ -547,7 +547,7 @@ class NewRevisionTests(UserTestCase, WikiTestCase):
         eq_(tags, result_tags)
         tags = [u'tag1', u'tag4']
         data = new_document_data(tags)
-        data['form'] = 'rev'
+        data['form-type'] = 'rev'
         self.client.post(reverse('wiki.edit',
                                  args=[self.d.slug]),
                          data)
@@ -561,7 +561,7 @@ class NewRevisionTests(UserTestCase, WikiTestCase):
         editing."""
         _test_form_maintains_based_on_rev(
             self.client, self.d, 'wiki.edit',
-            {'summary': 'Windy', 'content': 'gerbils', 'form': 'rev',
+            {'summary': 'Windy', 'content': 'gerbils', 'form-type': 'rev',
              'slug': self.d.slug, 'toc_depth': 1},
             locale='en-US')
 
@@ -588,7 +588,7 @@ class DocumentEditTests(UserTestCase, WikiTestCase):
         data = new_document_data()
         new_title = 'A brand new title'
         data.update(title=new_title)
-        data.update(form='doc')
+        data['form-type'] = 'doc'
         data.update(is_localizable='True')
         response = self.client.post(reverse('wiki.edit', args=[self.d.slug]),
                                     data, follow=True)
@@ -601,7 +601,7 @@ class DocumentEditTests(UserTestCase, WikiTestCase):
         data = new_document_data()
         new_slug = 'Test-Document'
         data.update(slug=new_slug)
-        data.update(form='doc')
+        data['form-type'] = 'doc'
         response = self.client.post(reverse('wiki.edit', args=[self.d.slug]),
                                     data, follow=True)
         eq_(200, response.status_code)
@@ -613,7 +613,7 @@ class DocumentEditTests(UserTestCase, WikiTestCase):
         data = new_document_data()
         new_title = 'TeST DoCuMent'
         data.update(title=new_title)
-        data.update(form='doc')
+        data['form-type'] = 'doc'
         response = self.client.post(reverse('wiki.edit', args=[self.d.slug]),
                                     data, follow=True)
         eq_(200, response.status_code)
@@ -927,7 +927,7 @@ class TranslateTests(UserTestCase, WikiTestCase):
         data = _translation_data()
         new_title = 'Un nuevo titulo'
         data['title'] = new_title
-        data['form'] = 'doc'
+        data['form-type'] = 'doc'
         response = self.client.post(translate_uri, data)
         eq_(302, response.status_code)
         eq_('http://testserver/es/docs/un-test-articulo$edit'
