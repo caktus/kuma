@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-01-09 07:36+0000\n"
-"Last-Translator: bychek.ru <a@bychek.ru>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-06-24 20:25+0000\n"
+"Last-Translator: Victor Bychek <a@bychek.ru>\n"
+"Language-Team: Russian https://pontoon.mozilla.org/ru/\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -38,6 +38,14 @@ msgstr "Нет"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "Никогда больше не спрашивать"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "Спасибо за ваш отзыв!"
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "Мы не будем беспокоить вас снова."
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -87,7 +95,7 @@ msgstr "Не выбрано"
 msgid "Selected: "
 msgstr "Выбрано: "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "Новый интерес..."
 
@@ -131,29 +139,70 @@ msgstr "Отправлено. Спасибо!"
 msgid "Show old table."
 msgstr "Показать старую таблицу."
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "Сохранить черновик"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "Включить автосохранение."
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "неизвестная дата"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "У вас есть черновик от:"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "Восстановить контент черновика"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "Удалить черновик"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "восстановлен"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "Черновик"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
-msgstr "сохранено"
+msgstr "сохранён"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "автосохранён"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "опубликован"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "удалён"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "Автосохранение включено."
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "Автосохранение выключено."
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
+msgstr "Открыть на %(site)s"
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."
-msgstr "Новый тег..."
+msgstr "Новая метка..."
 
 #: kuma/static/js/wiki.js:200
 msgid "How to read CSS syntax."

@@ -4,6 +4,7 @@ import sys
 import traceback
 from datetime import datetime, timedelta
 from functools import wraps
+from uuid import uuid4
 
 import newrelic.agent
 import waffle
@@ -315,8 +316,7 @@ class Document(NotificationsMixin, models.Model):
 
     summary_text = models.TextField(editable=False, blank=True, null=True)
 
-    # TODO bug 1246967: Enable field once migration is run in production
-    # uuid = models.UUIDField(default=uuid4, editable=False, null=True)
+    uuid = models.UUIDField(default=uuid4, editable=False)
 
     class Meta(object):
         unique_together = (
@@ -623,6 +623,7 @@ class Document(NotificationsMixin, models.Model):
                     'tags': list(translation.tags.names()),
                     'title': translation.title,
                     'url': translation.get_absolute_url(),
+                    'uuid': str(translation.uuid)
                 })
 
         if self.current_revision:
@@ -658,6 +659,7 @@ class Document(NotificationsMixin, models.Model):
             'label': self.title,
             'url': self.get_absolute_url(),
             'id': self.id,
+            'uuid': str(self.uuid),
             'slug': self.slug,
             'tags': tags,
             'review_tags': review_tags,
@@ -1758,20 +1760,17 @@ class Revision(models.Model):
         if self.tidied_content:
             tidied_content = self.tidied_content
         else:
-            from .tasks import tidy_revision_content
-            tidying_scheduled_cache_key = 'kuma:tidying_scheduled:%s' % self.pk
-            # if there isn't already a task scheduled for the revision
-            tidying_already_scheduled = memcache.get(tidying_scheduled_cache_key)
-            if not tidying_already_scheduled:
-                tidy_revision_content.delay(self.pk)
-                # we temporarily set a flag that we've scheduled a task
-                # already and don't need to schedule it the next time
-                # we use 3 days as a limit to try it again
-                memcache.set(tidying_scheduled_cache_key, 1, 60 * 60 * 24 * 3)
             if allow_none:
+                if self.pk:
+                    from .tasks import tidy_revision_content
+                    tidy_revision_content.delay(self.pk, refresh=False)
                 tidied_content = None
             else:
                 tidied_content, errors = tidy_content(self.content)
+                if self.pk:
+                    Revision.objects.filter(pk=self.pk).update(
+                        tidied_content=tidied_content)
+        self.tidied_content = tidied_content or ''
         return tidied_content
 
     @property
@@ -1839,6 +1838,12 @@ class RevisionIP(models.Model):
         editable=False,
         blank=True,
     )
+    data = models.TextField(
+        editable=False,
+        blank=True,
+        null=True,
+        verbose_name=_('Data submitted to Akismet')
+    )
     objects = RevisionIPManager()
 
     def __unicode__(self):
@@ -1899,14 +1904,15 @@ class DocumentSpamAttempt(SpamAttempt):
     The wiki document specific spam attempt.
 
     Stores title, slug and locale of the documet revision to be able
-    to see where it happens.
+    to see where it happens. Stores data sent to Akismet so that staff can
+    review Akismet's spam detection for false positives.
     """
     title = models.CharField(
-        verbose_name=ugettext('Title'),
+        verbose_name=_('Title'),
         max_length=255,
     )
     slug = models.CharField(
-        verbose_name=ugettext('Slug'),
+        verbose_name=_('Slug'),
         max_length=255,
     )
     document = models.ForeignKey(
@@ -1914,8 +1920,44 @@ class DocumentSpamAttempt(SpamAttempt):
         related_name='spam_attempts',
         null=True,
         blank=True,
-        verbose_name=ugettext('Document (optional)'),
+        verbose_name=_('Document (optional)'),
         on_delete=models.SET_NULL,
+    )
+    data = models.TextField(
+        editable=False,
+        blank=True,
+        null=True,
+        verbose_name=_('Data submitted to Akismet')
+    )
+    reviewed = models.DateTimeField(
+        _('reviewed'),
+        blank=True,
+        null=True,
+    )
+
+    NEEDS_REVIEW = 0
+    HAM = 1
+    SPAM = 2
+    REVIEW_UNAVAILABLE = 3
+    AKISMET_ERROR = 4
+    REVIEW_CHOICES = (
+        (NEEDS_REVIEW, _('Needs Review')),
+        (HAM, _('Ham / False Positive')),
+        (SPAM, _('Confirmed as Spam')),
+        (REVIEW_UNAVAILABLE, _('Review Unavailable')),
+        (AKISMET_ERROR, _('Akismet Error')),
+    )
+    review = models.IntegerField(
+        choices=REVIEW_CHOICES,
+        default=NEEDS_REVIEW,
+        verbose_name=_("Review of Akismet's classification as spam"),
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='documentspam_reviewed',
+        blank=True,
+        null=True,
+        verbose_name=_('Staff reviewer'),
     )
 
     def __unicode__(self):

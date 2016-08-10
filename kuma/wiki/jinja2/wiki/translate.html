@@ -80,7 +80,7 @@
             <div id="content-fields">
               <article class="approved text-content">
                 <header>
-                    <h3 class="approved-title">{{ _('Approved %(locale)s version', locale=default_locale) }}:</h3>
+                    <h3 class="approved-title">{{ _('Approved %(locale)s version:', locale=default_locale) }}</h3>
                     <div class="translate-buttons">
                         <button class="doc-mode-btn" data-alternate-message="{{ _('View Rendered') }}">{{ _('View Source') }}</button>
                         <button class="hide-original-btn" data-alternate-message="{{ _('Show %(locale)s', locale=default_locale) }}">{{ _('Hide %(locale)s', locale=default_locale) }}</button>
@@ -95,11 +95,13 @@
               </article>
               <article class="localized">
                 <header>
-                  {% include 'wiki/includes/guide_links.html' %}
                   <h3>{{ _('%(locale)s translation:', locale=language) }}</h3>
                 </header>
-                <div class="ckeditor-container editor-container">
-                  {{ content_editor(revision_form.content) }}
+                {% include 'wiki/includes/guide_links.html' %}
+                <div id="editor-wrapper" class="editor-wrapper">
+                    <div class="ckeditor-container editor-container">
+                      {{ content_editor(revision_form.content) }}
+                    </div>
                 </div>
               </article>
             </div>

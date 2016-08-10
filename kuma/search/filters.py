@@ -1,7 +1,6 @@
 import collections
 
 from django.conf import settings
-
 from elasticsearch_dsl import F, Q, query
 from rest_framework.filters import BaseFilterBackend
 
@@ -11,11 +10,31 @@ from .models import Filter, FilterGroup
 
 
 def get_filters(getter_func):
+    """
+    Returns the values of all filter groups, intended to pull key/value pairs
+    from requests.
+
+    E.g. if 'topic' is a `FilterGroup` slug and given the URL::
+
+        ?q=test&topic=css&topic=html
+
+    this will return `['css', 'html']`.
+
+    If the given URL contains 'none', then no filters should be applied.
+
+    """
+    if getter_func("none"):
+        return [u'none']
     filters = collections.OrderedDict()
     for slug in FilterGroup.objects.values_list('slug', flat=True):
         for filters_slug in getter_func(slug, []):
             filters[filters_slug] = None
-    return filters.keys()
+    if filters:
+        return filters.keys()
+    else:
+        # Given a list of [<group_slug>, <tag_slug>, <shortcut>] we only want
+        # the tags.
+        return [x[1] for x in Filter.objects.default_filters()]
 
 
 class LanguageFilterBackend(BaseFilterBackend):
@@ -169,8 +188,10 @@ class DatabaseFilterBackend(BaseFilterBackend):
             if len(filter_tags) > 1:
                 facet_params = F('terms', tags=list(filter_tags))
             else:
-                facet_params = F('term', tags=filter_tags[0])
-            active_facets.append((serialized_filter['slug'], facet_params))
+                if filter_tags:
+                    facet_params = F('term', tags=filter_tags[0])
+            if len(filter_tags):
+                active_facets.append((serialized_filter['slug'], facet_params))
 
         if active_filters:
             if len(active_filters) == 1:

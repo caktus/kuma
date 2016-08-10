@@ -16,14 +16,14 @@
 
   <ul class="page-buttons" data-sticky="false">
       {% if not document.is_template %}
-      <li><button id="languages-menu" class="transparent" aria-haspopup="true" aria-owns="languages-menu-submenu" aria-expanded="false"><span>{{ _('Languages') }}</span><i aria-hidden="true" class="icon-globe"></i></button>
+      <li><button id="languages-menu" class="transparent" aria-haspopup="true" aria-owns="languages-menu-submenu" aria-expanded="false"><span>{{ _('Languages') }}</span><i aria-hidden="true" class="icon-language"></i></button>
 
         <div class="submenu js-submenu" id="languages-menu-submenu">
           <div class="submenu-column">
             <ul id="translations">
               {% if document.other_translations %}
                 {% for translation in document.other_translations %}
-                  <li><bdi><a rel="internal" href="{{ url('wiki.document', translation.slug, locale=translation.locale) }}" title="{{ translation.title }}">{{ translation.language }}</a></bdi></li>
+                  <li><bdi><a rel="internal" href="{{ url('wiki.document', translation.slug, locale=translation.locale) }}" title="{{ translation.title }}">{{ translation.language }} ({{ translation.locale }})</a></bdi></li>
                 {% endfor %}
               {% else %}
                 <li class="smaller">{{ _('No translations exist for this article.') }}</li>
@@ -37,7 +37,9 @@
         </div>
       </li>{% endif %}
 
+      {% if (not document.is_template) or (user.has_perm('wiki.change_template_document')) %}
       <li class="page-buttons-edit"><a href="{{ edit_link }}" class="button" data-optimizely-hook="button-edit-doc" id="edit-button">{{ _('Edit') }}<i aria-hidden="true" class="icon-pencil"></i></a></li>
+      {% endif %}
 
         {% if user.is_authenticated() and document %}
         <li><button id="watch-menu" class="only-icon" aria-haspopup="true" aria-owns="watch-menu-submenu" aria-expanded="false"><span>{{ _('Watch') }}</span><i aria-hidden="true" class="icon-eye"></i></button>
@@ -57,8 +59,6 @@
             <div class="title">{{ _('Advanced') }}</div>
             <ul>
                 <li><a href="{{ url('wiki.document_revisions', document.slug) }}" rel="nofollow, noindex">{{_('History')}}</a></li>
-                {% if user.is_authenticated() and document %}
-                </li>{% endif %}
                 {% if user.is_authenticated() and not document.is_template %}
                   <li><a href="{{ url('wiki.create') }}?parent={{ document.id }}" rel="nofollow, noindex">{{ _('New sub-article') }}</a></li>
                   <li><a href="{{ url('wiki.create') }}?clone={{ document.id }}{% if document.parent_topic %}&amp;parent={{ document.parent_topic.id }}{% endif %}" rel="nofollow, noindex">{{ _('Clone this article') }}</a></li>

@@ -13,7 +13,6 @@ from django.core import mail
 from django.test.utils import override_settings
 from django.utils.http import urlquote
 from pyquery import PyQuery as pq
-from waffle.models import Flag
 
 from kuma.core.tests import eq_, ok_
 from kuma.core.urlresolvers import reverse
@@ -51,21 +50,6 @@ class DocumentTests(UserTestCase, WikiTestCase):
         doc = pq(response.content)
         eq_(r.document.title, doc('main#content div.document-head h1').text())
         eq_(r.document.html, doc('article#wikiArticle').text())
-
-    def test_custom_css_waffle(self):
-        """
-        Verify KUMA_CUSTOM_CSS_PATH is only included when waffle flag is
-        active.
-        """
-        r = revision(save=True, content='Some text.', is_approved=True)
-        response = self.client.get(r.document.get_absolute_url())
-        eq_(200, response.status_code)
-        ok_(config.KUMA_CUSTOM_CSS_PATH not in response.content)
-
-        Flag.objects.create(name='enable_customcss', everyone=True)
-        response = self.client.get(r.document.get_absolute_url())
-        eq_(200, response.status_code)
-        ok_(config.KUMA_CUSTOM_CSS_PATH in response.content)
 
     @pytest.mark.breadcrumbs
     def test_document_breadcrumbs(self):
@@ -353,7 +337,7 @@ class NewDocumentTests(UserTestCase, WikiTestCase):
         response = self.client.post(reverse('wiki.create'), data,
                                     follow=True)
         doc = pq(response.content)
-        ul = doc('article > ul.errorlist')
+        ul = doc('article ul.errorlist')
         ok_(len(ul) > 0)
         ok_('Please provide a title.' in ul('li').text())
 
@@ -365,7 +349,7 @@ class NewDocumentTests(UserTestCase, WikiTestCase):
         response = self.client.post(reverse('wiki.create'), data,
                                     follow=True)
         doc = pq(response.content)
-        ul = doc('article > ul.errorlist')
+        ul = doc('article ul.errorlist')
         eq_(1, len(ul))
         eq_('Please provide content.', ul('li').text())
 
@@ -379,7 +363,7 @@ class NewDocumentTests(UserTestCase, WikiTestCase):
         response = self.client.post(reverse('wiki.create'), data)
         eq_(200, response.status_code)
         doc = pq(response.content)
-        ul = doc('article > ul.errorlist')
+        ul = doc('article ul.errorlist')
         eq_(1, len(ul))
         eq_('Document with this Slug and Locale already exists.',
             ul('li').text())
@@ -491,7 +475,7 @@ class NewRevisionTests(UserTestCase, WikiTestCase):
         time.sleep(1)
         eq_(2, len(mail.outbox))
         first_edit_email = mail.outbox[0]
-        expected_to = [config.EMAIL_LIST_FOR_FIRST_EDITS]
+        expected_to = [config.EMAIL_LIST_SPAM_WATCH]
         expected_subject = u'[MDN] %(username)s made their first edit, to: %(title)s' % ({'username': new_rev.creator.username, 'title': self.d.title})
         eq_(expected_subject, first_edit_email.subject)
         eq_(expected_to, first_edit_email.to)

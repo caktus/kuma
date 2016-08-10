@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT 1.0\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-01-23 15:50+0000\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-06-26 22:20+0000\n"
 "Last-Translator: Tymur Faradzhev <faradzhev.timur@gmail.com>\n"
-"Language-Team: none\n"
+"Language-Team: Ukrainian https://pontoon.mozilla.org/uk/\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -38,6 +38,14 @@ msgstr "Ні"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "Більше не запитувати"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "Дякуємо за ваш відгук!"
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "Ми не потурбуємо вас знов."
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -87,7 +95,7 @@ msgstr "Не вибрано"
 msgid "Selected: "
 msgstr "Вибрано: "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "Нове зацікавлення..."
 
@@ -131,25 +139,66 @@ msgstr "Повідомлено. Дякую!"
 msgid "Show old table."
 msgstr "Показати стару таблицю."
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "Зберегти чернетку"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "Увімкнути автозбереження."
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "невідома дата"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "У вас є чернетка від:"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "Відновити вміст чернетки"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "Видалити чернетку"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "відновлено"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "Чернетка"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
 msgstr "збережено"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "автоматично збережено"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "опубліковано"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "скасовано"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "Автозбереження увімкнено."
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "Автозбереження вимкнено."
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
+msgstr "Відкрити на %(site)s"
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."

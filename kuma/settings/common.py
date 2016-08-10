@@ -594,6 +594,9 @@ PUENTE = {
              'javascript'),
         ],
     },
+    'PROJECT': 'MDN',
+    'VERSION': '2016.0',
+    'MSGID_BUGS_ADDRESS': 'dev-mdn@lists.mozilla.org',
 }
 
 STATICI18N_ROOT = 'build/locale'
@@ -843,7 +846,6 @@ PIPELINE_JS = {
             'js/search-navigator.js',
             'js/wiki.js',
             'js/wiki-samples.js',
-            'js/social.js',
         ),
         'output_filename': 'build/js/wiki.js',
         'extra_context': {
@@ -1129,13 +1131,6 @@ CONSTANCE_CONFIG = dict(
         'kumascript. Passed along in a Cache-Control: max-age={value} header, '
         'which tells kumascript whether or not to serve up a cached response.'
     ),
-    KUMA_CUSTOM_CSS_PATH=(
-        '/en-US/docs/Template:CustomCSS',
-        'Path to a wiki document whose raw content will be loaded as a CSS '
-        'stylesheet for the wiki base template. Will also cause the ?raw '
-        'parameter for this path to send a Content-Type: text/css header. Empty '
-        'value disables the feature altogether.',
-    ),
     KUMA_CUSTOM_SAMPLE_CSS_PATH=(
         '/en-US/docs/Template:CustomSampleCSS',
         'Path to a wiki document whose raw content will be loaded as a CSS '
@@ -1196,7 +1191,7 @@ CONSTANCE_CONFIG = dict(
     ),
     WIKI_DOCUMENT_TAG_SUGGESTIONS=(
         json.dumps([
-            "Accessibility", "AJAX", "API", "Apps",
+            "Accessibility", "AJAX", "API", "Apps", "B2G OS",
             "Canvas", "CSS", "Device", "DOM", "Events",
             "Extensions", "Firefox", "Firefox OS", "Games",
             "Gecko", "Graphics", "Internationalization", "History", "HTML", "HTTP", "JavaScript", "Layout",
@@ -1209,20 +1204,11 @@ CONSTANCE_CONFIG = dict(
         ]),
         "JSON array listing tag suggestions for documents"
     ),
-    SEARCH_FILTER_TAG_OPTIONS=(
+    COMMON_REASONS_TO_BAN_USERS=(
         json.dumps([
-            "Accessibility", "AJAX", "API", "Apps",
-            "Canvas", "CSS", "Device", "DOM", "Events",
-            "Extensions", "Firefox", "Firefox OS", "Games",
-            "Gecko", "Graphics", "Internationalization", "History", "HTML", "HTTP", "JavaScript", "Layout",
-            "Localization", "MDN", "Mobile", "Mozilla",
-            "Networking", "Persona", "Places", "Plugins", "Protocols",
-
-            "Reference", "Tutorial", "Landing",
-
-            "junk", "NeedsMarkupWork", "NeedsContent", "NeedsExample",
+            'Spam', 'Profile Spam ', 'Sandboxing', 'Incorrect Translation', 'Penetration Testing',
         ]),
-        "JSON array of tags that are enabled for search faceting"
+        "JSON array listing some common reasons to ban users",
     ),
     SESSION_CLEANUP_CHUNK_SIZE=(
         1000,
@@ -1232,9 +1218,9 @@ CONSTANCE_CONFIG = dict(
         "Janet Swisher <no-reply@mozilla.org>",
         'Email address from which welcome emails will be sent',
     ),
-    EMAIL_LIST_FOR_FIRST_EDITS=(
+    EMAIL_LIST_SPAM_WATCH=(
         "mdn-spam-watch@mozilla.com",
-        "Email address to which emails will be sent for users' first edits",
+        "Email address to notify of possible spam (first edits, blocked edits)",
     ),
     AKISMET_KEY=(
         '',
@@ -1247,7 +1233,11 @@ CONSTANCE_CONFIG = dict(
     RECAPTCHA_PRIVATE_KEY=(
         '',
         'ReCAPTCHA private key, leave empty to disable'
-    )
+    ),
+    EMAIL_LIST_MDN_ADMINS=(
+        'mdn-admins@mozilla.org',
+        'Email address to request admin intervention'
+    ),
 )
 
 KUMASCRIPT_URL_TEMPLATE = 'http://localhost:9080/docs/{path}'

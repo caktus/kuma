@@ -1,7 +1,7 @@
 {% extends "wiki/base.html" %}
 {% block title %}{{ page_title(document.title + seo_parent_title) }}{% endblock %}
 
-{% from "wiki/includes/document_macros.html" import build_document_crumbs, get_document_quick_links, get_document_subnav, document_watch, build_share_links, contributor_links with context %}
+{% from "wiki/includes/document_macros.html" import build_document_crumbs, get_document_quick_links, get_document_subnav, document_watch, contributor_links with context %}
 {% from "wiki/includes/buttons.html" import get_document_buttons with context %}
 {% from "wiki/includes/approvals.html" import get_approvals_html with context %}
 
@@ -17,7 +17,7 @@
 
 {% if document.is_template %}
   {% set macro_name = document.slug|replace('Template:','', 1) %}
-  {% set template_search_link = url('search', locale=document.locale)|urlparams(locale='*', kumascript_macros=macro_name) %}
+  {% set template_search_link = url('search', locale=document.locale)|urlparams(locale='*', kumascript_macros=macro_name, topic='none') %}
 {% endif %}
 
 {% set current_revision = document.current_revision %}
@@ -35,7 +35,6 @@
 
 {% set buttons = get_document_buttons(document, help_link) %}
 {% set crumbs = build_document_crumbs(document) %}
-{% set share_links = build_share_links(document) %}
 
 
 {% set content_class = 'column-all' %}
@@ -262,14 +261,22 @@
 
               {% if document.current_revision %}
                 {% if document.current_revision.needs_technical_review %}
-                  <div class="warning warning-review"><p>{% trans %}
-                    This article is in need of a technical review.
-                  {% endtrans %}</p></div>
+                  <div class="warning warning-review">
+                    <p>
+                      {% trans url="/docs/MDN/Contribute/HowTo/Do_a_technical_review" %}
+                        This article needs a technical review. <a href="{{ url }}">How you can help.</a>
+                      {% endtrans %}
+                    </p>
+                  </div>
                 {% endif %}
                 {% if document.current_revision.needs_editorial_review %}
-                  <div class="warning warning-review"><p>{% trans %}
-                    This article is in need of an editorial review.
-                  {% endtrans %}</p></div>
+                  <div class="warning warning-review">
+                    <p>
+                      {% trans url="/docs/MDN/Contribute/Howto/Do_an_editorial_review" %}
+                        This article needs an editorial review. <a href="{{ url }}">How you can help.</a>
+                      {% endtrans %}
+                    </p>
+                  </div>
                 {% endif %}
                 {% if document.current_revision.localization_in_progress %}
                   {% if document.current_revision.translation_age >= 10 %}
@@ -315,8 +322,6 @@
                   {{ _("This article doesn't have approved content yet.") }}
                 {% endif %}
               </article>
-
-              {{ share_links }}
 
               {% if not is_zone_root %}
 
@@ -381,8 +386,6 @@
 
 {% block js %}
 
-  {% javascript 'helpfulness' %}
-
   {% if waffle.flag('section_edit') %}
     <script type="text/javascript">
         (function($) {
@@ -413,6 +416,10 @@
             });
         })(jQuery);
     </script>
+  {% endif %}
+
+  {% if waffle.flag('iperceptions') %}
+    <script>/*Copyright 2011-2015 iPerceptions, Inc. All rights reserved. Do not distribute.iPerceptions provides this code 'as is' without warranty of any kind, either express or implied. */ window.iperceptionskey = 'a66f3d65-ba68-458d-b97c-df3af3d33d1c';(function () { var a = document.createElement('script'),b = document.getElementsByTagName('body')[0]; a.type = 'text/javascript'; a.async = true;a.src = '//universal.iperceptions.com/wrapper.js';b.appendChild(a);})();</script>
   {% endif %}
 
 {% endblock %}

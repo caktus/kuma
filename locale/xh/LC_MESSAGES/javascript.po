@@ -1,11 +1,11 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language-Team: Xhosa https://pontoon.mozilla.org/xh/\n"
 "Language: xh\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -34,6 +34,14 @@ msgstr ""
 
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
+msgstr ""
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr ""
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
 msgstr ""
 
 #: kuma/static/js/helpfulness.js:59
@@ -84,7 +92,7 @@ msgstr ""
 msgid "Selected: "
 msgstr ""
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr ""
 
@@ -128,24 +136,65 @@ msgstr ""
 msgid "Show old table."
 msgstr ""
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr ""
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr ""
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr ""
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr ""
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr ""
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr ""
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
 msgstr ""
 
 #: kuma/static/js/wiki-tags-edit.js:48

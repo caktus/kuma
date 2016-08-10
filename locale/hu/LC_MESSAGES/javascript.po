@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-01-24 13:38+0000\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-06-24 20:10+0000\n"
 "Last-Translator: Balázs Meskó <meskobalazs@gmail.com>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language-Team: Hungarian https://pontoon.mozilla.org/hu/\n"
 "Language: hu\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -38,6 +38,14 @@ msgstr "Nem"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "Ez a kérdés a jövőben ne jelenjen meg"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "Köszönjük visszajelzését."
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "Nem fogjuk többet zargatni."
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -87,7 +95,7 @@ msgstr "Nincs kiválasztva"
 msgid "Selected: "
 msgstr "Kiválasztva: "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "Új érdeklődési kör…"
 
@@ -131,25 +139,66 @@ msgstr "Bejelentve. Köszönjük!"
 msgid "Show old table."
 msgstr "Régi táblázat megjelenítése."
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "Piszkozat mentése"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "Automatikus mentés engedélyezése."
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "ismeretlen dátum"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "Létezik egy piszkozata innen:"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "Piszkozat tartalmának helyreállítása"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "Piszkozat elvetése"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "visszaállítva"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "Piszkozat"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
 msgstr "mentve"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "automatikusan mentve"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "közzétéve"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "elvetve"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "Automatikus mentés engedélyezve."
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "Automatikus mentés letiltva."
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
+msgstr "Megnyitás itt: %(site)s"
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."

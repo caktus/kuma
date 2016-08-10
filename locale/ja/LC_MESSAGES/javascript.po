@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-01-09 00:49+0000\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-06-24 20:11+0000\n"
 "Last-Translator: Kohei Yoshino <kohei.yoshino@gmail.com>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language-Team: Japanese https://pontoon.mozilla.org/ja/\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -38,6 +38,14 @@ msgstr "いいえ"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "再度表示しない"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "フィードバックを送っていただきありがとうございます！"
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "あなたを再び悩ませることのないようにします。"
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -87,7 +95,7 @@ msgstr "選択なし"
 msgid "Selected: "
 msgstr "選択済み: "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "新たな興味..."
 
@@ -131,25 +139,66 @@ msgstr "報告が送信されました。ありがとうございます！"
 msgid "Show old table."
 msgstr "古い表を表示"
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "草稿を保存"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "自動保存を有効化"
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "不明な日時"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "この日時に保存された草稿があります:"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "草稿の内容を復元"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "草稿を削除"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "復元された内容"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "草稿"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
 msgstr "保存済み"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "自動保存済み"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "公開済み"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "破棄されました"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "自動保存が有効化されました。"
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "自動保存が無効化されました。"
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
+msgstr "%(site)s で開く"
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."

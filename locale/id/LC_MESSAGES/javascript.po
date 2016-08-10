@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-02-25 23:56+0000\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-05-31 01:49+0000\n"
 "Last-Translator: alamanda <dian.ina@gmail.com>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language-Team: Indonesian https://pontoon.mozilla.org/id/\n"
 "Language: id\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -37,6 +37,14 @@ msgstr "Tidak"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "Jangan pernah bertanya pada saya lagi"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "Terima kasih atas masukan Anda!"
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "Kami tidak akan mengganggu Anda lagi."
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -86,7 +94,7 @@ msgstr "Tidak ada pilihan"
 msgid "Selected: "
 msgstr "Terpilih: "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "Minat baru..."
 
@@ -130,25 +138,66 @@ msgstr "Dilaporkan. Terima kasih!"
 msgid "Show old table."
 msgstr "Tampilkan tabel lama."
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "Menyimpan Rancangan"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "Mengaktifkan simpan-otomatis."
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "tanggal yang tidak diketahui"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "Anda memiliki rancangan dari:"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "Mengembalikan konten rancangan"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "Membuang rancangan"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "dikembalikan"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "Rancangan"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
 msgstr "disimpan"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "disimpan otomatis"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "diterbitkan"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "dibuang"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "Simpan-otomatis diaktifkan."
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "Simpan-otomatis dimatikan."
+
+#: kuma/static/js/wiki-samples.js:99
+#, fuzzy, python-format
+msgid "Open in %(site)s"
+msgstr "Buka di %(site)s "
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."

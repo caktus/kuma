@@ -1,27 +1,35 @@
-import json
 import os
-from urlparse import parse_qs, urlparse
+from textwrap import dedent
 
 import mock
 import pytest
+import requests_mock
 from allauth.account.models import EmailAddress
-from allauth.socialaccount.models import SocialAccount, SocialApp
-from allauth.socialaccount.providers import registry
-from allauth.tests import MockedResponse, mocked_response
+from allauth.socialaccount.models import SocialAccount
 from constance.test.utils import override_config
 from django.conf import settings
-from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
-from django.contrib.sites.models import Site
+from django.core import mail
 from django.core.paginator import PageNotAnInteger
+from django.db import IntegrityError
+from django.http import Http404
+from django.test import RequestFactory
 from pyquery import PyQuery as pq
+from waffle.models import Flag
+from pytz import timezone, utc
 
 from kuma.core.tests import eq_, ok_
 from kuma.core.urlresolvers import reverse
+from kuma.spam.akismet import Akismet
+from kuma.spam.constants import SPAM_SUBMISSIONS_FLAG, SPAM_URL, VERIFY_URL
+from kuma.wiki.models import (Document, Revision, RevisionAkismetSubmission,
+                              DocumentDeletionLog)
+from kuma.wiki.tests import document as create_document
 
-from . import UserTestCase, email, user
+
+from . import SampleRevisionsMixin, SocialTestMixin, UserTestCase, email, user
 from ..models import UserBan
-from ..providers.github.provider import KumaGitHubProvider
 from ..signup import SignupForm
+from ..views import delete_document, revert_document
 
 
 TESTUSER_PASSWORD = 'testpass'
@@ -48,7 +56,7 @@ class BanTestCase(UserTestCase):
         self.client.login(username='testuser',
                           password='testpass')
         ban_url = reverse('users.ban_user',
-                          kwargs={'user_id': admin.id})
+                          kwargs={'username': admin.username})
         resp = self.client.get(ban_url)
         eq_(302, resp.status_code)
         ok_(str(settings.LOGIN_URL) in resp['Location'])
@@ -58,7 +66,7 @@ class BanTestCase(UserTestCase):
         self.client.login(username='admin',
                           password='testpass')
         ban_url = reverse('users.ban_user',
-                          kwargs={'user_id': testuser.id})
+                          kwargs={'username': testuser.username})
         resp = self.client.get(ban_url)
         eq_(200, resp.status_code)
 
@@ -70,7 +78,7 @@ class BanTestCase(UserTestCase):
 
         data = {'reason': 'Banned by unit test.'}
         ban_url = reverse('users.ban_user',
-                          kwargs={'user_id': testuser.id})
+                          kwargs={'username': testuser.username})
 
         resp = self.client.post(ban_url, data)
         eq_(302, resp.status_code)
@@ -83,6 +91,56 @@ class BanTestCase(UserTestCase):
                                       by=admin,
                                       reason='Banned by unit test.')
         ok_(bans.count())
+
+    def test_ban_nonexistent_user(self):
+        # Attempting to ban a non-existent user should 404
+        admin = self.user_model.objects.get(username='admin')
+
+        self.client.login(username='admin', password='testpass')
+
+        nonexistent_username = 'foo'
+        data = {'reason': 'Banned by unit test.'}
+        ban_url = reverse('users.ban_user',
+                          kwargs={'username': nonexistent_username})
+
+        resp = self.client.post(ban_url, data)
+        eq_(404, resp.status_code)
+
+        bans = UserBan.objects.filter(user__username=nonexistent_username,
+                                      by=admin,
+                                      reason='Banned by unit test.')
+        eq_(bans.count(), 0)
+
+    def test_ban_without_reason(self):
+        # Attempting to ban without a reason should return the form
+        testuser = self.user_model.objects.get(username='testuser')
+        admin = self.user_model.objects.get(username='admin')
+
+        self.client.login(username='admin', password='testpass')
+
+        ban_url = reverse('users.ban_user',
+                          kwargs={'username': testuser.username})
+
+        # POST without data kwargs
+        resp = self.client.post(ban_url)
+
+        eq_(200, resp.status_code)
+
+        bans = UserBan.objects.filter(user=testuser,
+                                      by=admin,
+                                      reason='Banned by unit test.')
+        eq_(bans.count(), 0)
+
+        # POST with a blank reason
+        data = {'reason': ''}
+        resp = self.client.post(ban_url, data)
+
+        eq_(200, resp.status_code)
+
+        bans = UserBan.objects.filter(user=testuser,
+                                      by=admin,
+                                      reason='Banned by unit test.')
+        eq_(bans.count(), 0)
 
     def test_bug_811751_banned_user(self):
         """A banned user should not be viewable"""
@@ -109,6 +167,563 @@ class BanTestCase(UserTestCase):
         response = self.client.get(url, follow=True)
         self.assertNotEqual(response.status_code, 403)
 
+    def test_get_ban_user_view(self):
+        # For an unbanned user get the ban_user view
+        testuser = self.user_model.objects.get(username='testuser')
+        admin = self.user_model.objects.get(username='admin')
+
+        self.client.login(username='admin', password='testpass')
+        ban_url = reverse('users.ban_user',
+                          kwargs={'username': testuser.username})
+
+        resp = self.client.get(ban_url)
+        eq_(200, resp.status_code)
+
+        # For a banned user redirect to user detail page
+        UserBan.objects.create(user=testuser, by=admin,
+                               reason='Banned by unit test.',
+                               is_active=True)
+        resp = self.client.get(ban_url)
+        eq_(302, resp.status_code)
+        ok_(testuser.get_absolute_url() in resp['Location'])
+
+
+@pytest.mark.bans
+class BanAndCleanupTestCase(UserTestCase):
+    localizing_client = True
+
+    def test_ban_permission(self):
+        """The ban permission controls access to the ban and cleanup view."""
+        admin = self.user_model.objects.get(username='admin')
+        testuser = self.user_model.objects.get(username='testuser')
+
+        # testuser doesn't have ban permission, can't ban.
+        self.client.login(username='testuser',
+                          password='testpass')
+        ban_url = reverse('users.ban_user_and_cleanup',
+                          kwargs={'username': admin.username})
+        resp = self.client.get(ban_url)
+        eq_(302, resp.status_code)
+        ok_(str(settings.LOGIN_URL) in resp['Location'])
+        self.client.logout()
+
+        # admin has ban permission, can ban.
+        self.client.login(username='admin',
+                          password='testpass')
+        ban_url = reverse('users.ban_user_and_cleanup',
+                          kwargs={'username': testuser.username})
+        resp = self.client.get(ban_url)
+        eq_(200, resp.status_code)
+
+    def test_ban_nonexistent_user(self):
+        """GETs to ban_user_and_cleanup for nonexistent user return 404."""
+        testuser = self.user_model.objects.get(username='testuser')
+
+        # GET request
+        self.client.login(username='admin',
+                          password='testpass')
+        ban_url = reverse('users.ban_user_and_cleanup',
+                          kwargs={'username': testuser.username})
+        testuser.delete()
+        resp = self.client.get(ban_url)
+        eq_(404, resp.status_code)
+
+
+@pytest.mark.bans
+class BanUserAndCleanupSummaryTestCase(SampleRevisionsMixin, UserTestCase):
+    localizing_client = True
+
+    def setUp(self):
+        super(BanUserAndCleanupSummaryTestCase, self).setUp()
+
+        self.ban_testuser_url = reverse('users.ban_user_and_cleanup_summary',
+                                        kwargs={'username': self.testuser.username})
+        self.ban_testuser2_url = reverse('users.ban_user_and_cleanup_summary',
+                                         kwargs={'username': self.testuser2.username})
+        self.client.login(username='admin', password='testpass')
+
+    def enable_akismet_and_mock_requests(self, mock_requests):
+        """Enable Akismet and mock calls to it. Return the mock object."""
+        Flag.objects.create(name=SPAM_SUBMISSIONS_FLAG, everyone=True)
+        mock_requests.post(VERIFY_URL, content='valid')
+        mock_requests.post(SPAM_URL, content=Akismet.submission_success)
+        return mock_requests
+
+    def test_delete_document(self):
+        """
+        A given document can be deleted, and will create a corresponding DocumentDeletionLog.
+        """
+        factory = RequestFactory()
+        request = factory.get(self.ban_testuser_url)
+        request.user = self.admin
+
+        # Trying to delete a document that is None will fail without error.
+        success = delete_document(request, None)
+        self.assertFalse(success)
+
+        # Calling on a real document deletes the document and creates the log object
+        self.assertFalse(DocumentDeletionLog.objects.exists())
+        success = delete_document(request, self.document)
+        self.assertTrue(success)
+        self.assertFalse(Document.objects.filter(id=self.document.id).exists())
+        self.assertTrue(DocumentDeletionLog.objects.exists())
+
+    def test_revert_document(self):
+        factory = RequestFactory()
+        request = factory.get(self.ban_testuser_url)
+        request.user = self.admin
+
+        # Create a spam revision on top of the original good rev.
+        revisions_created = self.create_revisions(
+            num=1,
+            document=self.document,
+            creator=self.testuser)
+        revision_id = revisions_created[0].id
+
+        # Reverting a non-existent rev raises a 404
+        with self.assertRaises(Http404):
+            revert_document(request, revision_id + 1)
+
+        # Reverting an existing rev succeeds
+        success = revert_document(request, revision_id)
+        self.assertTrue(success)
+        self.document.refresh_from_db(fields=['current_revision'])
+        self.assertNotEqual(revision_id, self.document.current_revision.id)
+
+        # If an IntegrityError is raised when we try to revert, it fails without error.
+        revision_id = self.document.current_revision.id
+        with mock.patch('kuma.wiki.models.datetime') as datetime_mock:
+            # Just get any old thing inside the call to raise an IntegrityError
+            datetime_mock.now.side_effect = IntegrityError()
+
+            success = revert_document(request, revision_id)
+        self.assertFalse(success)
+        self.document.refresh_from_db(fields=['current_revision'])
+        self.assertEqual(revision_id, self.document.current_revision.id)
+
+    def test_ban_nonexistent_user(self):
+        """POSTs to ban_user_and_cleanup for nonexistent user return 404."""
+        self.testuser.delete()
+        resp = self.client.post(self.ban_testuser_url)
+        eq_(404, resp.status_code)
+
+    def test_post_returns_summary_page(self):
+        """POSTing to ban_user_and_cleanup returns the summary page."""
+        resp = self.client.post(self.ban_testuser_url)
+        eq_(200, resp.status_code)
+
+    def test_post_bans_user(self):
+        """POSTing to the ban_user_and_cleanup bans user for "spam" reason."""
+        resp = self.client.post(self.ban_testuser_url)
+        eq_(200, resp.status_code)
+
+        testuser_banned = self.user_model.objects.get(username='testuser')
+        ok_(not testuser_banned.is_active)
+
+        bans = UserBan.objects.filter(user=self.testuser,
+                                      by=self.admin,
+                                      reason='Spam')
+        ok_(bans.count())
+
+    def test_post_banned_user(self):
+        """POSTing to ban_user_and_cleanup for a banned user updates UserBan."""
+        UserBan.objects.create(user=self.testuser, by=self.testuser2,
+                               reason='Banned by unit test.',
+                               is_active=True)
+
+        resp = self.client.post(self.ban_testuser_url)
+        eq_(200, resp.status_code)
+
+        ok_(not self.testuser.is_active)
+
+        bans = UserBan.objects.filter(user=self.testuser)
+
+        # Assert that the ban exists, and 'by' and 'reason' fields are updated
+        ok_(bans.count())
+        eq_(bans.first().is_active, True)
+        eq_(bans.first().by, self.admin)
+        eq_(bans.first().reason, 'Spam')
+
+    @override_config(AKISMET_KEY='dashboard')
+    @requests_mock.mock()
+    def test_post_submits_revisions_to_akismet_as_spam(self, mock_requests):
+        """POSTing to ban_user_and_cleanup url submits revisions to akismet."""
+        # Create 3 revisions for self.testuser, titled 'Revision 1', 'Revision 2'...
+        # Don't specify document so a new one is created for each revision
+        num_revisions = 3
+        revisions_created = self.create_revisions(
+            num=num_revisions,
+            creator=self.testuser)
+
+        # Enable Akismet and mock calls to it
+        mock_requests = self.enable_akismet_and_mock_requests(mock_requests)
+
+        # The request
+        data = {'revision-id': [rev.id for rev in revisions_created]}
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # All of self.testuser's revisions have been submitted
+        testuser_submissions = RevisionAkismetSubmission.objects.filter(revision__creator=self.testuser.id)
+        eq_(testuser_submissions.count(), num_revisions)
+        for submission in testuser_submissions:
+            ok_(submission.revision in revisions_created)
+        # Akismet endpoints were called twice for each revision
+        ok_(mock_requests.called)
+        eq_(mock_requests.call_count, 2 * num_revisions)
+
+    @override_config(AKISMET_KEY='dashboard')
+    @requests_mock.mock()
+    def test_post_submits_no_revisions_to_akismet_when_no_user_revisions(self, mock_requests):
+        """POSTing to ban_user_and_cleanup url for a user with no revisions."""
+        # Enable Akismet and mock calls to it
+        mock_requests = self.enable_akismet_and_mock_requests(mock_requests)
+
+        # User has no revisions
+        data = {'revision-id': []}
+
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # Akismet endpoints were not called
+        eq_(mock_requests.call_count, 0)
+
+    @override_config(AKISMET_KEY='dashboard')
+    @requests_mock.mock()
+    def test_post_submits_no_revisions_to_akismet_when_revisions_not_in_request(self, mock_requests):
+        """POSTing to ban_user_and_cleanup url without revisions in request."""
+        # Create 3 revisions for self.testuser, titled 'Revision 1', 'Revision 2'...
+        # Don't specify document so a new one is created for each revision
+        num_revisions = 3
+        self.create_revisions(
+            num=num_revisions,
+            creator=self.testuser)
+
+        # Enable Akismet and mock calls to it
+        mock_requests = self.enable_akismet_and_mock_requests(mock_requests)
+
+        # User's revisions were not in request.POST (not selected in the template)
+        data = {'revision-id': []}
+
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # No revisions submitted for self.testuser, since no revisions were selected
+        testuser_submissions = RevisionAkismetSubmission.objects.filter(
+            revision__creator=self.testuser.id)
+        eq_(testuser_submissions.count(), 0)
+        # Akismet endpoints were not called
+        eq_(mock_requests.call_count, 0)
+
+    @override_config(AKISMET_KEY='dashboard')
+    @requests_mock.mock()
+    def test_post_submits_no_revisions_to_akismet_when_wrong_revisions_in_request(self, mock_requests):
+        """POSTing to ban_user_and_cleanup url with non-user revisions."""
+        # Create 3 revisions for self.testuser, titled 'Revision 1', 'Revision 2'...
+        num_revisions = 3
+        revisions_created = self.create_revisions(
+            num=num_revisions,
+            document=self.document,
+            creator=self.testuser)
+
+        # Enable Akismet and mock calls to it
+        mock_requests = self.enable_akismet_and_mock_requests(mock_requests)
+
+        # User being banned did not create the revisions being POSTed
+        data = {'revision-id': [rev.id for rev in revisions_created]}
+
+        resp = self.client.post(self.ban_testuser2_url, data=data)
+        eq_(200, resp.status_code)
+
+        # No revisions submitted for self.testuser2, since revisions in the POST
+        # were made by self.testuser
+        testuser2_submissions = RevisionAkismetSubmission.objects.filter(
+            revision__creator=self.testuser2.id)
+        eq_(testuser2_submissions.count(), 0)
+        # Akismet endpoints were not called
+        eq_(mock_requests.call_count, 0)
+
+    def test_post_deletes_new_page(self):
+        """POSTing to ban_user_and_cleanup url with a new document."""
+        # Create a new document and revisions as testuser
+        # Revisions will be reverted and then document will be deleted.
+        new_document = create_document(save=True)
+        new_revisions = self.create_revisions(
+            num=3,
+            document=new_document,
+            creator=self.testuser)
+
+        # Pass in all revisions, each should be reverted then the
+        # document will be deleted as well
+        data = {'revision-id': [rev.id for rev in new_revisions]}
+
+        self.client.login(username='admin', password='testpass')
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # Test that the document was deleted successfully
+        deleted_doc = Document.admin_objects.filter(pk=new_document.pk).first()
+        eq_(deleted_doc.deleted, True)
+
+    def test_post_reverts_page(self):
+        """POSTing to ban_user_and_cleanup url with revisions to a document."""
+        # Create a new document and first revision as an admin
+        # and spam revisions as testuser.
+        # Document should be reverted with a new revision by admin.
+        new_document = create_document(save=True)
+        self.create_revisions(num=1, document=new_document, creator=self.admin)
+        original_content = new_document.current_revision.content
+        spam_revisions = self.create_revisions(
+            num=3,
+            document=new_document,
+            creator=self.testuser)
+        for rev in spam_revisions:
+            rev.content = "Spam!"
+            rev.save()
+
+        # Before we send in the spam,
+        # last spam_revisions[] should be the current revision
+        eq_(new_document.current_revision.id, spam_revisions[2].id)
+        # and testuser is the creator of this current revision
+        eq_(new_document.current_revision.creator, self.testuser)
+
+        # Pass in all spam revisions, each should be reverted then the
+        # document should return to the original revision
+        data = {'revision-id': [rev.id for rev in spam_revisions]}
+
+        self.client.login(username='admin', password='testpass')
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        new_document = Document.objects.filter(id=new_document.id).first()
+        # Make sure that the current revision is not the spam revision
+        for revision in spam_revisions:
+            ok_(revision.id != new_document.current_revision.id)
+        # The most recent Revision object should be the document's current revision
+        latest_revision = Revision.objects.order_by('-id').first()
+        eq_(new_document.current_revision.id, latest_revision.id)
+        # Admin is the creator of this current revision
+        eq_(new_document.current_revision.creator, self.admin)
+        # The new revision's content is the same as the original's
+        eq_(new_document.current_revision.content, original_content)
+
+    def test_post_one_reverts_one_does_not_revert(self):
+        """POSTing to ban_user_and_cleanup url with revisions to 2 documents."""
+        # Document A will have latest revision by the admin, but older spam revisions
+        # Document B will have latest revision by spammer
+        # Document A should not revert (although there are older spam revisions)
+        # Document B will revert
+        new_document_a = create_document(save=True)
+        new_document_b = create_document(save=True)
+        self.create_revisions(
+            num=1, document=new_document_a, creator=self.admin)
+        self.create_revisions(
+            num=1, document=new_document_b, creator=self.admin)
+        spam_revisions_a = self.create_revisions(
+            num=3,
+            document=new_document_a,
+            creator=self.testuser)
+        safe_revision_a = self.create_revisions(
+            num=1,
+            document=new_document_a,
+            creator=self.admin)
+        spam_revisions_b = self.create_revisions(
+            num=3,
+            document=new_document_b,
+            creator=self.testuser)
+
+        # Pass in all spam revisions:
+        # A revisions will not be reverted
+        # B revisions will be reverted
+        data = {'revision-id': [rev.id for rev in spam_revisions_a + spam_revisions_b]}
+
+        self.client.login(username='admin', password='testpass')
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # Document A: No changes should have been made
+        new_document_a = Document.objects.filter(id=new_document_a.id).first()
+        eq_(new_document_a.current_revision.id, safe_revision_a[0].id)
+        revisions_a = Revision.objects.filter(document=new_document_a)
+        eq_(revisions_a.count(), 5)  # Total of 5 revisions, no new revisions were made
+
+        # Document B: Make sure that the current revision is not the spam revision
+        new_document_b = Document.objects.filter(id=new_document_b.id).first()
+        for revision in spam_revisions_b:
+            ok_(revision.id != new_document_b.current_revision.id)
+        # The most recent Revision for this document
+        # should be the document's current revision
+        latest_revision_b = Revision.objects.filter(
+            document=new_document_b).order_by('-id').first()
+        eq_(new_document_b.current_revision.id, latest_revision_b.id)
+        # Admin is the creator of this current revision
+        eq_(new_document_b.current_revision.creator, self.admin)
+        revisions_b = Revision.objects.filter(document=new_document_b)
+        # 5 total revisions on B = 1 initial + 3 spam revisions + 1 new reverted revision
+        eq_(revisions_b.count(), 5)
+
+    def test_current_rev_is_non_spam(self):
+        new_document = create_document(save=True)
+        self.create_revisions(
+            num=1, document=new_document, creator=self.admin)
+        spam_revisions = self.create_revisions(
+            num=3,
+            document=new_document,
+            creator=self.testuser)
+        safe_revision = self.create_revisions(
+            num=1,
+            document=new_document,
+            creator=self.admin)
+
+        # Pass in spam revisions:
+        data = {'revision-id': [rev.id for rev in spam_revisions]}
+
+        self.client.login(username='admin', password='testpass')
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # No changes should have been made to the document
+        new_document = Document.objects.get(id=new_document.id)
+        eq_(new_document.current_revision.id, safe_revision[0].id)
+        revisions = Revision.objects.filter(document=new_document)
+        eq_(revisions.count(), 5)  # Total of 5 revisions, no new revisions were made
+
+    def test_intermediate_non_spam_rev(self):
+        new_document = create_document(save=True)
+        # Create 4 revisions: one good, one spam, one good, then finally one spam
+        self.create_revisions(
+            num=1, document=new_document, creator=self.admin)
+        spam_revision1 = self.create_revisions(
+            num=1,
+            document=new_document,
+            creator=self.testuser)
+        safe_revision = self.create_revisions(
+            num=1,
+            document=new_document,
+            creator=self.admin)
+        # Set the content of the last good revision, so we can compare afterwards
+        safe_revision[0].content = "Safe"
+        safe_revision[0].save()
+        spam_revision2 = self.create_revisions(
+            num=1,
+            document=new_document,
+            creator=self.testuser)
+
+        # Pass in spam revisions:
+        data = {'revision-id': [rev.id for rev in spam_revision1 + spam_revision2]}
+
+        self.client.login(username='admin', password='testpass')
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        # The document should be reverted to the last good revision
+        new_document = Document.objects.get(id=new_document.id)
+
+        # Make sure that the current revision is not either of the spam revisions
+        for revision in spam_revision1 + spam_revision2:
+            ok_(revision.id != new_document.current_revision.id)
+
+        # And that it did actually revert
+        ok_(new_document.current_revision.id != safe_revision[0].id)
+
+        revisions = Revision.objects.filter(document=new_document)
+        eq_(revisions.count(), 5)  # Total of 5 revisions, a new revision was made
+
+        eq_(new_document.current_revision.content, "Safe")
+
+    def test_post_sends_email(self):
+        # Add an existing good document with a spam rev
+        new_document1 = create_document(save=True)
+        self.create_revisions(
+            num=1, document=new_document1, creator=self.admin)
+        spam_revision1 = self.create_revisions(
+            num=1,
+            document=new_document1,
+            creator=self.testuser)
+
+        # Add a new purely spam document
+        new_document2 = create_document(save=True)
+        spam_revision2 = self.create_revisions(
+            num=1,
+            document=new_document2,
+            creator=self.testuser)
+
+        # Add a spammed document where a user submits a good rev on top
+        new_document3 = create_document(save=True)
+        self.create_revisions(
+            num=1, document=new_document3, creator=self.admin)
+        spam_revision3 = self.create_revisions(
+            num=1,
+            document=new_document3,
+            creator=self.testuser)
+        self.create_revisions(
+            num=1, document=new_document3, creator=self.admin)
+
+        eq_(len(mail.outbox), 0)
+
+        # Pass in spam revisions:
+        data = {'revision-id':
+                [rev.id for rev in spam_revision1 + spam_revision2 + spam_revision3]}
+
+        self.client.login(username='admin', password='testpass')
+        resp = self.client.post(self.ban_testuser_url, data=data)
+        eq_(200, resp.status_code)
+
+        tz = timezone(settings.TIME_ZONE)
+
+        eq_(len(mail.outbox), 1)
+        eq_(
+            mail.outbox[0].body,
+            dedent(
+                """
+                * ACTIONS TAKEN *
+
+                Banned:
+
+                  Name: {user.username}
+                  ID: {user.pk}
+                  Joined at: {date_joined}
+                  Profile link: https://example.com/en-US/profiles/{user.username}
+
+                Submitted to Akismet as spam:
+
+                  - {rev1.title} [https://example.com{rev1_url}]
+                  - {rev2.title} [https://example.com{rev2_url}]
+                  - {rev3.title} [https://example.com{rev3_url}]
+
+                Deleted:
+
+                  - {rev2.document.title} [https://example.com{rev2_doc_url}]
+
+                Reverted:
+
+                  - {rev1.title} [https://example.com{rev1_url}]
+
+                * NEEDS FOLLOW UP *
+
+                Revisions skipped due to newer non-spam revision:
+
+                  - {rev3.title} [https://example.com{rev3_url}]
+
+                * NO ACTION TAKEN *
+
+                Latest revision is non-spam:
+
+                  - {rev3.title} [https://example.com{rev3_url}]
+                """.format(
+                    user=self.testuser,
+                    date_joined=tz.localize(self.testuser.date_joined).astimezone(utc),
+                    rev1=spam_revision1[0],
+                    rev2=spam_revision2[0],
+                    rev3=spam_revision3[0],
+                    rev1_url=spam_revision1[0].get_absolute_url(),
+                    rev2_url=spam_revision2[0].get_absolute_url(),
+                    rev3_url=spam_revision3[0].get_absolute_url(),
+                    rev2_doc_url=spam_revision2[0].document.get_absolute_url()
+                )
+            )
+        )
+
 
 class UserViewsTest(UserTestCase):
     localizing_client = True
@@ -125,7 +740,7 @@ class UserViewsTest(UserTestCase):
     def _get_current_form_field_values(self, doc):
         # Scrape out the existing significant form field values.
         fields = ('username', 'email', 'fullname', 'title', 'organization',
-                  'location', 'irc_nickname', 'bio', 'interests')
+                  'location', 'irc_nickname', 'interests')
         form = dict()
         lookup_pattern = '#{prefix}edit *[name="{prefix}{field}"]'
         prefix = 'user-'
@@ -155,8 +770,6 @@ class UserViewsTest(UserTestCase):
             doc.find('#user-head.vcard .loc').text())
         eq_('IRC: ' + testuser.irc_nickname,
             doc.find('#user-head.vcard .irc').text())
-        eq_(testuser.bio,
-            doc.find('#user-head.vcard .user-bio').text())
 
     def test_my_user_page(self):
         u = self.user_model.objects.get(username='testuser')
@@ -272,7 +885,6 @@ class UserViewsTest(UserTestCase):
         doc = pq(response.content)
 
         test_sites = {
-            'website': 'http://example.com/',
             'twitter': 'http://twitter.com/lmorchard',
             'github': 'http://github.com/lmorchard',
             'stackoverflow': 'http://stackoverflow.com/users/lmorchard',
@@ -308,7 +920,7 @@ class UserViewsTest(UserTestCase):
 
         # Come up with some bad sites, either invalid URL or bad URL prefix
         bad_sites = {
-            'website': 'HAHAHA WHAT IS A WEBSITE',
+            'linkedin': 'HAHAHA WHAT IS A WEBSITE',
             'twitter': 'http://facebook.com/lmorchard',
             'stackoverflow': 'http://overqueueblah.com/users/lmorchard',
         }
@@ -320,7 +932,7 @@ class UserViewsTest(UserTestCase):
         doc = pq(response.content)
         eq_(1, doc.find('#user-edit').length)
         tmpl = '#user-edit #users .%s .errorlist'
-        for n in ('website', 'twitter', 'stackoverflow'):
+        for n in ('linkedin', 'twitter', 'stackoverflow'):
             eq_(1, doc.find(tmpl % n).length)
 
     def test_user_edit_interests(self):
@@ -439,7 +1051,7 @@ class Test404Case(UserTestCase):
         self.client.logout()
 
 
-class AllauthPersonaTestCase(UserTestCase):
+class AllauthPersonaTestCase(UserTestCase, SocialTestMixin):
     """
     Test sign-up/in flow with Persona.
     """
@@ -452,17 +1064,15 @@ class AllauthPersonaTestCase(UserTestCase):
         Failed Persona auth does not crash or otherwise error, but
         correctly redirects to an explanatory page.
         """
-        with mock.patch('requests.post') as requests_mock:
-            requests_mock.return_value.json.return_value = {
-                'status': 'failure',
-                'reason': 'this email address has been naughty'
-            }
-            response = self.client.post(reverse('persona_login'),
-                                        follow=True)
-            eq_(200, response.status_code)
-            eq_(response.redirect_chain,
-                [('http://testserver/users/persona/complete?process=&next=',
-                  302)])
+        data = {
+            'status': 'failure',
+            'reason': 'this email address has been naughty'
+        }
+        response = self.persona_login(verifier_data=data)
+        eq_(200, response.status_code)
+        eq_(response.redirect_chain,
+            [('http://testserver/users/persona/complete?process=&next=',
+              302)])
 
     def test_persona_auth_success(self):
         """
@@ -470,22 +1080,14 @@ class AllauthPersonaTestCase(UserTestCase):
         account with that email) user redirects to the signup
         completion page.
         """
-        with mock.patch('requests.post') as requests_mock:
-            requests_mock.return_value.json.return_value = {
-                'status': 'okay',
-                'email': 'views_persona_auth@example.com',
-            }
-            response = self.client.post(reverse('persona_login'),
-                                        follow=True)
-            eq_(response.status_code, 200)
-            expected_redirects = [
-                ('http://testserver/users/persona/complete?process=&next=',
-                 302),
-                ('http://testserver/users/account/signup',
-                 302),
-            ]
-            for red in expected_redirects:
-                ok_(red in response.redirect_chain)
+        response = self.persona_login()
+        eq_(response.status_code, 200)
+        expected_redirects = [
+            ('http://testserver/users/persona/complete?process=&next=', 302),
+            ('http://testserver/users/account/signup', 302),
+        ]
+        for red in expected_redirects:
+            ok_(red in response.redirect_chain)
 
     def test_persona_signin(self):
         """
@@ -494,22 +1096,16 @@ class AllauthPersonaTestCase(UserTestCase):
         successful and redirects to the home page when no explicit
         'next' is provided.
         """
-        with mock.patch('requests.post') as requests_mock:
-            requests_mock.return_value.json.return_value = {
-                'status': 'okay',
-                'email': self.existing_persona_email,
-            }
-            response = self.client.post(reverse('persona_login'),
-                                        follow=True)
-            eq_(response.status_code, 200)
-            expected_redirects = [
-                ('http://testserver/users/persona/complete?process=&next=',
-                 302),
-                ('http://testserver/en-US/',
-                 301)
-            ]
-            for red in expected_redirects:
-                ok_(red in response.redirect_chain)
+        data = self.persona_verifier_data.copy()
+        data['email'] = self.existing_persona_email
+        response = self.persona_login(verifier_data=data)
+        eq_(response.status_code, 200)
+        expected_redirects = [
+            ('http://testserver/users/persona/complete?process=&next=', 302),
+            ('http://testserver/en-US/', 301)
+        ]
+        for red in expected_redirects:
+            ok_(red in response.redirect_chain)
 
     def test_persona_signin_next(self):
         """
@@ -517,190 +1113,46 @@ class AllauthPersonaTestCase(UserTestCase):
         from a page which supplied a 'next' parameter, they are
         redirected back to that page following authentication.
         """
-        with mock.patch('requests.post') as requests_mock:
-            requests_mock.return_value.json.return_value = {
-                'status': 'okay',
-                'email': self.existing_persona_email,
-            }
-            doc_url = reverse('wiki.document', args=['article-title'],
-                              locale=settings.WIKI_DEFAULT_LANGUAGE)
-            response = self.client.post(reverse('persona_login'),
-                                        data={'next': doc_url},
-                                        follow=True)
-            ok_(('http://testserver%s' % doc_url, 302) in response.redirect_chain)
-
-    @override_config(RECAPTCHA_PRIVATE_KEY='private_key',
-                     RECAPTCHA_PUBLIC_KEY='public_key')
-    def test_persona_signin_captcha(self):
-        persona_signup_email = 'views_persona_django_user@example.com'
-        persona_signup_username = 'views_persona_django_user'
-
-        with mock.patch('requests.post') as requests_mock:
-            requests_mock.return_value.json.return_value = {
-                'status': 'okay',
-                'email': persona_signup_email,
-            }
-            self.client.post(reverse('persona_login'), follow=True)
-            data = {'website': '',
-                    'username': persona_signup_username,
-                    'email': persona_signup_email,
-                    'terms': True,
-                    'g-recaptcha-response': 'FAILED'}
-            signup_url = reverse('socialaccount_signup',
-                                 locale=settings.WIKI_DEFAULT_LANGUAGE)
-            response = self.client.post(signup_url, data=data, follow=True)
-            eq_(response.status_code, 200)
-            eq_(response.context['form'].errors,
-                {'captcha': [u'Incorrect, please try again.']})
-
-    @mock.patch.dict(os.environ, {'RECAPTCHA_TESTING': 'True'})
-    def test_persona_signup_create_django_user(self):
-        """
-        Signing up with Persona creates a new Django User instance.
-        """
-        persona_signup_email = 'views_persona_django_user@example.com'
-        persona_signup_username = 'views_persona_django_user'
-
-        with mock.patch('requests.post') as requests_mock:
-            old_count = self.user_model.objects.count()
-            requests_mock.return_value.json.return_value = {
-                'status': 'okay',
-                'email': persona_signup_email,
-            }
-            self.client.post(reverse('persona_login'), follow=True)
-            data = {'website': '',
-                    'username': persona_signup_username,
-                    'email': persona_signup_email,
-                    'terms': True,
-                    'g-recaptcha-response': 'PASSED'}
-            signup_url = reverse('socialaccount_signup',
-                                 locale=settings.WIKI_DEFAULT_LANGUAGE)
-            response = self.client.post(signup_url, data=data, follow=True)
-            eq_(response.status_code, 200)
-            # not on the signup page anymore
-            ok_('form' not in response.context)
-
-            # Did we get a new user?
-            eq_(old_count + 1, self.user_model.objects.count())
-
-            # Does it have the right attributes?
-            testuser = None
-            try:
-                testuser = self.user_model.objects.order_by('-date_joined')[0]
-            except IndexError:
-                pass
-            ok_(testuser)
-            ok_(testuser.is_active)
-            eq_(persona_signup_username, testuser.username)
-            eq_(persona_signup_email, testuser.email)
-            ok_(testuser.password.startswith(UNUSABLE_PASSWORD_PREFIX))
-
-    @mock.patch.dict(os.environ, {'RECAPTCHA_TESTING': 'True'})
-    def test_persona_signup_create_socialaccount(self):
-        """
-        Signing up with Persona creates a new SocialAccount instance.
-        """
-        persona_signup_email = 'views_persona_socialaccount@example.com'
-        persona_signup_username = 'views_persona_socialaccount'
-
-        with mock.patch('requests.post') as requests_mock:
-            requests_mock.return_value.json.return_value = {
-                'status': 'okay',
-                'email': persona_signup_email,
-            }
-            self.client.post(reverse('persona_login'), follow=True)
-            data = {'website': '',
-                    'username': persona_signup_username,
-                    'email': persona_signup_email,
-                    'terms': True,
-                    'g-recaptcha-response': 'PASSED'}
-            signup_url = reverse('socialaccount_signup',
-                                 locale=settings.WIKI_DEFAULT_LANGUAGE)
-            self.client.post(signup_url, data=data, follow=True)
-            try:
-                socialaccount = (SocialAccount.objects
-                                              .filter(user__username=persona_signup_username))[0]
-            except IndexError:
-                socialaccount = None
-            ok_(socialaccount is not None)
-            eq_('persona', socialaccount.provider)
-            eq_(persona_signup_email, socialaccount.uid)
-            eq_({'status': 'okay', 'email': persona_signup_email},
-                socialaccount.extra_data)
-            testuser = self.user_model.objects.get(username=persona_signup_username)
-            eq_(testuser.id, socialaccount.user.id)
+        data = self.persona_verifier_data.copy()
+        data['email'] = self.existing_persona_email
+        doc_url = reverse('wiki.document', args=['article-title'],
+                          locale=settings.WIKI_DEFAULT_LANGUAGE)
+        response = self.persona_login(verifier_data=data, next_url=doc_url)
+        ok_(('http://testserver%s' % doc_url, 302) in response.redirect_chain)
 
 
-class KumaGitHubTests(UserTestCase):
+class KumaGitHubTests(UserTestCase, SocialTestMixin):
     localizing_client = False
-    mocked_user_response = """
-        {
-            "login": "%(username)s",
-            "id": 1,
-            "avatar_url": "https://github.com/images/error/octocat_happy.gif",
-            "gravatar_id": "somehexcode",
-            "url": "https://api.github.com/users/octocat",
-            "html_url": "https://github.com/octocat",
-            "followers_url": "https://api.github.com/users/octocat/followers",
-            "following_url": "https://api.github.com/users/octocat/following{/other_user}",
-            "gists_url": "https://api.github.com/users/octocat/gists{/gist_id}",
-            "starred_url": "https://api.github.com/users/octocat/starred{/owner}{/repo}",
-            "subscriptions_url": "https://api.github.com/users/octocat/subscriptions",
-            "organizations_url": "https://api.github.com/users/octocat/orgs",
-            "repos_url": "https://api.github.com/users/octocat/repos",
-            "events_url": "https://api.github.com/users/octocat/events{/privacy}",
-            "received_events_url": "https://api.github.com/users/octocat/received_events",
-            "type": "User",
-            "site_admin": false,
-            "name": "monalisa octocat",
-            "company": "GitHub",
-            "blog": "https://github.com/blog",
-            "location": "San Francisco",
-            "email": %(public_email)s,
-            "hireable": false,
-            "bio": "There once was...",
-            "public_repos": 2,
-            "public_gists": 1,
-            "followers": 20,
-            "following": 0,
-            "created_at": "2008-01-14T04:33:35Z",
-            "updated_at": "2008-01-14T04:33:35Z"
-        }"""
-    mocked_email_response = """
-        [
-            {
-                "email": "%(verified_email)s",
-                "verified": true,
-                "primary": true
-            }
-        ]"""
-
-    def get_login_response_json(self, with_refresh_token=True):
-        rt = ''
-        if with_refresh_token:
-            rt = ',"refresh_token": "testrf"'
-        return """{
-            "uid":"weibo",
-            "access_token":"testac"
-            %s }""" % rt
 
     def setUp(self):
         self.signup_url = reverse('socialaccount_signup',
                                   locale=settings.WIKI_DEFAULT_LANGUAGE)
-        self.provider = registry.by_id(KumaGitHubProvider.id)
-        app = SocialApp.objects.create(provider=self.provider.id,
-                                       name=self.provider.id,
-                                       client_id='app123id',
-                                       key=self.provider.id,
-                                       secret='dummy')
-        app.sites.add(Site.objects.get_current())
 
     def test_login(self):
-        resp = self.login()
+        resp = self.github_login()
         self.assertRedirects(resp, self.signup_url)
 
+    @override_config(RECAPTCHA_PRIVATE_KEY='private_key',
+                     RECAPTCHA_PUBLIC_KEY='public_key')
+    def test_signin_captcha(self):
+        resp = self.github_login()
+        self.assertRedirects(resp, self.signup_url)
+
+        data = {'website': '',
+                'username': 'octocat',
+                'email': 'octo.cat@github-inc.com',
+                'terms': True,
+                'g-recaptcha-response': 'FAILED'}
+
+        with mock.patch('captcha.client.request') as request_mock:
+            request_mock.return_value.read.return_value = '{"success": null}'
+            response = self.client.post(self.signup_url, data=data, follow=True)
+        eq_(response.status_code, 200)
+        eq_(response.context['form'].errors,
+            {'captcha': [u'Incorrect, please try again.']})
+
     def test_matching_user(self):
-        self.login()
+        self.github_login()
         response = self.client.get(self.signup_url)
         self.assertTrue('matching_user' in response.context)
         self.assertEqual(response.context['matching_user'], None)
@@ -710,27 +1162,44 @@ class KumaGitHubTests(UserTestCase):
 
     @mock.patch.dict(os.environ, {'RECAPTCHA_TESTING': 'True'})
     def test_email_addresses(self):
-        self.login(username='octocat2')
+        public_email = 'octocat-public@example.com'
+        private_email = 'octocat-private@example.com'
+        unverified_email = 'octocat-trash@example.com'
+        profile_data = self.github_profile_data.copy()
+        profile_data['email'] = public_email
+        email_data = [
+            {
+                'email': private_email,
+                'verified': True,
+                'primary': True
+            }, {
+                'email': unverified_email,
+                'verified': False,
+                'primary': False
+            }
+        ]
+        self.github_login(profile_data=profile_data, email_data=email_data)
         response = self.client.get(self.signup_url)
+        assert private_email not in response.context
         email_address = response.context['email_addresses']
 
         # first check if the public email address has been found
-        self.assertTrue('octocat@github.com' in email_address)
-        self.assertEqual(email_address['octocat@github.com'],
+        self.assertTrue(public_email in email_address)
+        self.assertEqual(email_address[public_email],
                          {'verified': False,
-                          'email': 'octocat@github.com',
+                          'email': public_email,
                           'primary': False})
         # then check if the private and verified-at-GitHub email address
         # has been found
-        self.assertTrue('octo.cat@github-inc.com' in email_address)
-        self.assertEqual(email_address['octo.cat@github-inc.com'],
+        self.assertTrue(private_email in email_address)
+        self.assertEqual(email_address[private_email],
                          {'verified': True,
-                          'email': 'octo.cat@github-inc.com',
+                          'email': private_email,
                           'primary': True})
         # then check if the radio button's default value is the public email
         # address
         self.assertEqual(response.context['form'].initial['email'],
-                         'octocat@github.com')
+                         public_email)
 
         unverified_email = 'o.ctocat@gmail.com'
         data = {
@@ -752,18 +1221,41 @@ class KumaGitHubTests(UserTestCase):
         self.assertFalse(unverified_email_addresses[0].verified)
 
     def test_email_addresses_with_no_public(self):
-        self.login(username='private_octocat',
-                   verified_email='octocat@github.com',
-                   public_email=None)
+        profile_data = self.github_profile_data.copy()
+        profile_data['email'] = None
+        email_data = self.github_email_data[:]
+        private_email = 'octocat.private@example.com'
+        email_data[0]['email'] = private_email
+        self.github_login(profile_data=profile_data, email_data=email_data)
         response = self.client.get(self.signup_url)
-        self.assertEqual(response.context["form"].initial["email"], 'octocat@github.com')
+        self.assertEqual(response.context["form"].initial["email"],
+                         private_email)
+
+    def test_email_addresses_with_no_alternatives(self):
+        private_email = self.github_profile_data['email']
+        self.github_login(email_data=[])
+        response = self.client.get(self.signup_url)
+        self.assertEqual(response.context["form"].initial["email"],
+                         private_email)
+
+    def test_no_email_addresses(self):
+        """Note: this does not seem to currently happen."""
+        profile_data = self.github_profile_data.copy()
+        profile_data['email'] = None
+        self.github_login(profile_data=profile_data, email_data=[])
+        response = self.client.get(self.signup_url)
+        self.assertEqual(response.context["form"].initial["email"], '')
 
     def test_matching_accounts(self):
         testemail = 'octo.cat.III@github-inc.com'
-        self.login(username='octocat3', verified_email=testemail)
+        profile_data = self.github_profile_data.copy()
+        profile_data['email'] = testemail
+        email_data = self.github_email_data[:]
+        email_data[0]['email'] = testemail
+        self.github_login(profile_data=profile_data, email_data=email_data)
         response = self.client.get(self.signup_url)
-        self.assertEqual(list(response.context['matching_accounts']),
-                         [])
+        self.assertFalse(response.context['matching_accounts'])
+
         # assuming there is already a Persona account with the given email
         # address
         octocat3 = user(username='octocat3', is_active=True,
@@ -772,31 +1264,29 @@ class KumaGitHubTests(UserTestCase):
                                                       provider='persona',
                                                       user=octocat3)
         response = self.client.get(self.signup_url)
-        self.assertTrue(response.context['matching_accounts'],
-                        [social_account])
+        self.assertEqual(list(response.context['matching_accounts']),
+                         [social_account])
 
-    def test_account_tokens(self, multiple_login=False):
+    def test_account_tokens(self):
         testemail = 'account_token@acme.com'
         testuser = user(username='user', is_active=True,
                         email=testemail, password='test', save=True)
         email(user=testuser, email=testemail,
               primary=True, verified=True, save=True)
-        self.client.login(username=testuser.username,
-                          password='test')
-        self.login(process='connect')
-        if multiple_login:
-            self.login(with_refresh_token=False, process='connect')
-        # get account
+        self.client.login(username=testuser.username, password='test')
+
+        token = 'access_token'
+        refresh_token = 'refresh_token'
+        token_data = self.github_token_data.copy()
+        token_data['access_token'] = token
+        token_data['refresh_token'] = refresh_token
+
+        self.github_login(token_data=token_data, process='connect')
         social_account = SocialAccount.objects.get(user=testuser,
-                                                   provider=self.provider.id)
-        # get token
+                                                   provider='github')
         social_token = social_account.socialtoken_set.get()
-        # verify access_token and refresh_token
-        self.assertEqual('testac', social_token.token)
-        self.assertEqual(social_token.token_secret,
-                         json.loads(self.get_login_response_json(
-                             with_refresh_token=True)).get(
-                                 'refresh_token', ''))
+        self.assertEqual(token, social_token.token)
+        self.assertEqual(refresh_token, social_token.token_secret)
 
     def test_account_refresh_token_saved_next_login(self):
         """
@@ -804,35 +1294,25 @@ class KumaGitHubTests(UserTestCase):
         saved refresh token. Systems such as google's oauth only send
         a refresh token on first login.
         """
-        self.test_account_tokens(multiple_login=True)
+        # Setup a user with a token and refresh token
+        testemail = 'account_token@acme.com'
+        testuser = user(username='user', is_active=True,
+                        email=testemail, password='test', save=True)
+        email(user=testuser, email=testemail,
+              primary=True, verified=True, save=True)
+        token = 'access_token'
+        refresh_token = 'refresh_token'
+        app = self.ensure_github_app()
+        sa = testuser.socialaccount_set.create(provider=app.provider)
+        sa.socialtoken_set.create(app=app, token=token, token_secret=refresh_token)
 
-    def login(self,
-              username='octocat',
-              verified_email='octo.cat@github-inc.com',
-              process='login', with_refresh_token=True,
-              public_email='octocat@github.com'):
-        resp = self.client.get(reverse('github_login',
-                                       locale=settings.WIKI_DEFAULT_LANGUAGE),
-                               {'process': process})
-        path = urlparse(resp['location'])
-        query = parse_qs(path.query)
-        complete_url = reverse('github_callback', unprefixed=True)
-        self.assertGreater(query['redirect_uri'][0]
-                           .find(complete_url), 0)
-        response_json = self.get_login_response_json(
-            with_refresh_token=with_refresh_token)
-        with mocked_response(
-            MockedResponse(200, response_json,
-                           {'content-type': 'application/json'}),
-                MockedResponse(200,
-                               self.mocked_user_response %
-                               {'username': username,
-                                'public_email': json.dumps(public_email)}),
-                MockedResponse(200,
-                               self.mocked_email_response %
-                               {'verified_email': verified_email})):
-            resp = self.client.get(complete_url,
-                                   {'code': 'test',
-                                    'state': query['state'][0]},
-                                   follow=True)
-        return resp
+        # Login without a refresh token
+        token_data = self.github_token_data.copy()
+        token_data['access_token'] = token
+        self.github_login(token_data=token_data, process='connect')
+
+        # Refresh token is still in database
+        sa.refresh_from_db()
+        social_token = sa.socialtoken_set.get()
+        self.assertEqual(token, social_token.token)
+        self.assertEqual(refresh_token, social_token.token_secret)

@@ -10,6 +10,9 @@ test:
 coveragetest: clean
 	py.test --cov=$(target) $(target)
 
+coveragetesthtml: coveragetest
+	coverage html
+
 locust:
 	locust -f tests/performance/smoke.py --host=https://developer.allizom.org
 
@@ -37,6 +40,8 @@ intern:
 clean:
 	rm -rf .coverage build/
 	find kuma -name '*.pyc' -exec rm {} \;
+	mkdir -p build/assets
+	mkdir -p build/locale
 
 locale:
 	@mkdir -p locale/$(LOCALE)/LC_MESSAGES && \
@@ -44,5 +49,20 @@ locale:
 			msginit --no-translator -l $(LOCALE) -i $$pot -o locale/$(LOCALE)/LC_MESSAGES/`basename -s .pot $$pot`.po ; \
 		done
 
+localetest:
+	dennis-cmd lint --errorsonly locale/
+
+localeextract:
+	python manage.py extract
+	python manage.py merge
+
+localecompile:
+	cd locale; ./compile-mo.sh . ; cd --
+
+localerefresh: localeextract localetest localecompile compilejsi18n collectstatic
+	@echo
+	@echo Commit the new files with:
+	@echo git add --all locale\; git commit -m \"MDN string update $(shell date +%Y-%m-%d)\"
+
 # Those tasks don't have file targets
-.PHONY: test coveragetest intern locust clean locale install compilecss compilejsi18n collectstatic
+.PHONY: test coveragetest intern locust clean locale install compilecss compilejsi18n collectstatic localetest localeextract localecompile localerefresh

@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-01-09 06:01+0000\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-06-27 08:37+0000\n"
 "Last-Translator: Sphinx / Julien G <sphinx_knight@hotmail.fr>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language-Team: French https://pontoon.mozilla.org/fr/\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -38,6 +38,14 @@ msgstr "Non"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "Ne plus me demander"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "Merci de votre retour !"
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "Nous ne vous ennuierons plus avec ça."
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -87,7 +95,7 @@ msgstr "Aucune sélection"
 msgid "Selected: "
 msgstr "Sélectionné : "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "Nouvel intérêt…"
 
@@ -131,25 +139,66 @@ msgstr "C'est rapporté. Merci !"
 msgid "Show old table."
 msgstr "Afficher l'ancien tableau."
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "Enregistrer le brouillon"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "Activer l'enregistrement automatique."
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "une date inconnue"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "Vous avez un brouillon enregistré depuis :"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "Appliquer le contenu du brouillon"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "Supprimer le brouillon"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "restauré"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "Brouillon"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
 msgstr "enregistré"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "enregistré automatiquement"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "publié"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "supprimé"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "Sauvegarde automatique activée."
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "Sauvegarde automatique désactivée."
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
+msgstr "Ouvrir dans %(site)s"
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."

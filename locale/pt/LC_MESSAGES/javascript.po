@@ -1,12 +1,12 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-11 15:58-0800\n"
-"PO-Revision-Date: 2016-01-10 04:56+0000\n"
+"Project-Id-Version: MDN 2016.0\n"
+"Report-Msgid-Bugs-To: dev-mdn@lists.mozilla.org\n"
+"POT-Creation-Date: 2016-08-08 13:21-0700\n"
+"PO-Revision-Date: 2016-07-02 01:02+0000\n"
 "Last-Translator: Cláudio Esperança <cesperanc@gmail.com>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language-Team: Portuguese (Portugal) https://pontoon.mozilla.org/pt_PT/\n"
 "Language: pt_PT\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -17,7 +17,7 @@ msgstr ""
 
 #: kuma/static/js/components.js:75
 msgid "Close submenu"
-msgstr "Fechar sub-menu"
+msgstr "Fechar submenu"
 
 #: kuma/static/js/components.js:542
 msgid "Close notification"
@@ -38,6 +38,14 @@ msgstr "Não"
 #: kuma/static/js/helpfulness.js:38
 msgid "Never ask me again"
 msgstr "Não perguntar novamente"
+
+#: kuma/static/js/helpfulness.js:45
+msgid "Thanks for your feedback!"
+msgstr "Obrigado pela sua opinião!"
+
+#: kuma/static/js/helpfulness.js:54
+msgid "We won't bug you again."
+msgstr "Não iremos aborrecê-lo novamente."
 
 #: kuma/static/js/helpfulness.js:59
 msgid "Translate it into my language"
@@ -87,7 +95,7 @@ msgstr "Sem seleção"
 msgid "Selected: "
 msgstr "Selecionado: "
 
-#: kuma/static/js/users.js:96
+#: kuma/static/js/users.js:108
 msgid "New interest..."
 msgstr "Novo interesse..."
 
@@ -131,25 +139,66 @@ msgstr "Reportado. Obrigado!"
 msgid "Show old table."
 msgstr "Mostrar tabela antiga."
 
-#: kuma/static/js/wiki-edit.js:402
+#: kuma/static/js/wiki-edit.js:401
+msgid "Save Draft"
+msgstr "Guardar rascunho"
+
+#: kuma/static/js/wiki-edit.js:406
+msgid "Enable autosave."
+msgstr "Ativar guardar automaticamente."
+
+#: kuma/static/js/wiki-edit.js:414
 msgid "an unknown date"
 msgstr "uma data desconhecida"
 
-#: kuma/static/js/wiki-edit.js:403
+#: kuma/static/js/wiki-edit.js:415
 msgid "You have a draft from:"
 msgstr "Tem um rascunho de:"
 
-#: kuma/static/js/wiki-edit.js:404
+#: kuma/static/js/wiki-edit.js:416
 msgid "Restore the draft content"
 msgstr "Restaurar o conteúdo do rascunho"
 
-#: kuma/static/js/wiki-edit.js:405
+#: kuma/static/js/wiki-edit.js:417
 msgid "Discard the draft"
 msgstr "Descartar o rascunho"
 
-#: kuma/static/js/wiki-edit.js:557
+#: kuma/static/js/wiki-edit.js:442
+msgid "restored"
+msgstr "restaurado"
+
+#: kuma/static/js/wiki-edit.js:571
+msgid "Draft"
+msgstr "Rascunho"
+
+#: kuma/static/js/wiki-edit.js:590
 msgid "saved"
 msgstr "guardado"
+
+#: kuma/static/js/wiki-edit.js:609
+msgid "autosaved"
+msgstr "guardado automaticamente"
+
+#: kuma/static/js/wiki-edit.js:618
+msgid "published"
+msgstr "publicado"
+
+#: kuma/static/js/wiki-edit.js:622
+msgid "discarded"
+msgstr "descartado"
+
+#: kuma/static/js/wiki-edit.js:660
+msgid "Autosave enabled."
+msgstr "Guardar automaticamente ativado."
+
+#: kuma/static/js/wiki-edit.js:667
+msgid "Autosave disabled."
+msgstr "Guardar automaticamente desativado."
+
+#: kuma/static/js/wiki-samples.js:99
+#, python-format
+msgid "Open in %(site)s"
+msgstr "Abrir em %(site)s"
 
 #: kuma/static/js/wiki-tags-edit.js:48
 msgid "New tag..."

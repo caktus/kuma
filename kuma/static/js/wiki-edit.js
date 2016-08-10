@@ -186,6 +186,8 @@
   */
     var DRAFT_NAME;
     var DRAFT_TIMEOUT_ID;
+    var draftingEnabled = false;
+    var draftAutoSaveEnabled = true;
 
     var supportsLocalStorage = win.mdn.features.localStorage;
     var $form = $('#wiki-page-edit');
@@ -315,9 +317,6 @@
 
         if ($('#article-head .metadata').length) {
             var show_meta = function () {
-                // Disable and hide the save-and-edit button when editing
-                // metadata, since that can change the URL of the page and
-                // tangle up where the iframe posts.
                 $('#article-head .doc-title').hide();
                 $('#article-head .metadata').show();
                 $('#article-head .metadata #id_title').focus();
@@ -397,22 +396,37 @@
 
     // Injects a DIV with language to the effect of "you had a previous draft, want to restore it?"
     // This takes the place of an ugly, ugly confirmation box :(
-    var $draftDiv;
-    function displayDraftBox(content, draft_time) {
+
+    var $draftDiv = $('<div/>', { class: 'draft-container' });
+    var $draftButton = $('<button/>', { class: 'button neutral', text: gettext('Save Draft'), 'type': 'button', 'disabled': 'disabled'})
+                     .append($('<i/>', { class: 'icon-save', 'aria-hidden': 'true'}));
+    var $draftStatus = $('<span/>', { class: 'draft-status' });
+    var $draftAction = $('<span/>', {id: 'draft-action'});
+    var $draftAutoSaveStatus = $('<span/>', {id: 'draft-auto-save-status'});
+    var $draftAutoSaveButton = $('<a/>', {id: 'draft-auto-save-enable', href: '', text: gettext('Enable autosave.')}).hide();
+    var $draftAutoSaveInfo = $('<em/>', {id: 'draft-auto-save-info'}).append($draftAutoSaveButton).append(' ').append($draftAutoSaveStatus);
+    var $draftTime = $('<time/>', {id: 'draft-time', class: 'time-ago'});
+    var isErrors = $('.errorlist').length;
+    var startingContent;
+
+    // show restore and discard links for old draft
+    function displayRestoreDraft(content, draft_time) {
         var draft_time_str = draft_time ? draft_time : gettext('an unknown date');
         var draft = gettext('You have a draft from:');
         var restore = gettext('Restore the draft content');
         var discard = gettext('Discard the draft');
 
-        var text = draft + ' ' + draft_time_str + '. <a href="" class="restoreLink">' + restore + '</a>. <a href="" class="discardLink">'+ discard +'</a>.';
+        var text = draft + ' ' + draft_time_str + '. <a href="" class="js-restoreLink">' + restore + '</a>. <a href="" class="js-discardLink">'+ discard +'</a>.';
         var $contentNode = $('#id_content');
         var editor;
 
-        // Plan the draft into the page
-        $draftDiv = $('<div class="notice"><p>' + text + '</p></div>').insertBefore($contentNode);
+        // Place the recovered draft into the page
+        $draftStatus.empty();
+        $draftButton.hide();
+        $draftStatus.append(text);
 
         // Hook up the "restore" link
-        $draftDiv.find('.restoreLink').on('click', function(e) {
+        $draftDiv.find('.js-restoreLink').on('click', function(e) {
             e.preventDefault();
             $contentNode.val(content);
 
@@ -425,20 +439,18 @@
                 editor.setData(content);
             }
             editor.focus();
-
-            updateDraftState('loaded');
-            hideDraftBox();
+            updateDraftState(gettext('restored'));
+            enableAutoSave(true);
         });
 
         // Hook up the "dispose" link
-        $draftDiv.find('.discardLink').on('click', function(e) {
+        $draftDiv.find('.js-discardLink').on('click', function(e) {
             e.preventDefault();
-            hideDraftBox();
-            clearDraft();
+            clearDraft(true);
         });
-    }
-    function hideDraftBox() {
-        $draftDiv && $draftDiv.css('display', 'none');
+
+        // disable auto save
+        enableAutoSave(false);
     }
 
 
@@ -453,12 +465,13 @@
         }
 
         // Save button submits to top-level
-        $form.on('submit', function () {
-            if (supportsLocalStorage) {
+        $('.btn-save').on('click', function () {
+            if (draftingEnabled) {
                 // Clear any preserved content.
-                clearDraft();
+                clearDraft('publish');
                 clearTimeout(DRAFT_TIMEOUT_ID);
             }
+            $form.attr('action', '').removeAttr('target');
             return true;
         });
 
@@ -472,10 +485,10 @@
 
             // record event
             mdn.analytics.trackEvent({
-                    category: 'Wiki',
-                    action: 'Button',
-                    label: 'Save and Keep Editing'
-                });
+                category: 'Wiki',
+                action: 'Button',
+                label: 'Save and Keep Editing' // now "Publish and keep editing" but keeping label for analytics continuity
+            });
 
             // Preserve editor content incase something goes wrong
             var savedTa = $form.find('textarea[name=content]').val();
@@ -547,16 +560,6 @@
                     // save draft
                 }
             });
-/*
-                //$form.find('input[name=current_rev]').val(
-
-                //ir.attr('data-current-revision'));
-
-                // Stop loading state on button
-                //$('.btn-save-and-edit').removeClass('loading');
-
-*/
-
         });
         $('.btn-save-and-edit').show();
 
@@ -572,75 +575,201 @@
         });
     }
 
+    // update the UI to reflect status of draft
     function updateDraftState(action) {
+        $draftButton.show();
         var now = new Date();
         var nowString = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
 
-        $('#draft-action').text(action);
-        $('#draft-time').attr('title', now.toISOString()).text(nowString);
-    }
+        // delate old status
+        $draftStatus.empty();
 
-    function saveDraft(val) {
-        if (supportsLocalStorage) {
-            localStorage.setItem(DRAFT_NAME, val || $form.find('textarea[name=content]').val());
-            var now = new Date();
-            var nowString = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
-            localStorage.setItem(DRAFT_NAME + '#save-time', nowString);
-            updateDraftState(gettext('saved'));
+        if(action){
+            // clone elements and populate
+            var $updateAction = $draftAction.clone().text(action);
+            var $updateTime = $draftTime.clone().attr('title', now.toISOString()).text(nowString);
+            // append elements
+            $draftStatus.append(gettext('Draft') + ' ').append($updateAction).append(' ').append($updateTime);
         }
     }
 
-    function clearDraft() {
-        if (supportsLocalStorage) {
-           localStorage.removeItem(DRAFT_NAME);
-        }
+    function saveDraft(draftContent, draftState) {
+        // put draft in local storage
+        localStorage.setItem(DRAFT_NAME, draftContent);
+        // put date of draft into local storage
+        var now = new Date();
+        var nowString = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+        localStorage.setItem(DRAFT_NAME + '#save-time', nowString);
+        // update UI
+        updateDraftState(draftState);
+        $draftButton.attr('disabled', 'disabled');
     }
 
-    function initDrafting() {
-        var editor;
-        DRAFT_NAME = getStorageKey();
-        if (supportsLocalStorage) {
-            var prev_draft = localStorage.getItem(DRAFT_NAME),
-                treatDraft = function(content) {
-                    return (content || '').replace(/ /g, '&nbsp;');
-                },
+    function manualSaveDraft(val) {
+        var currentContent = $form.find('textarea[name=content]').val();
+        // save draft
+        saveDraft(currentContent, gettext('saved'));
+        // disable autosave when saving manually
+        enableAutoSave(false);
+    }
 
-                treatedDraft = $.trim(treatDraft(prev_draft)),
-                treatedServer = treatDraft($form.find('textarea[name=content]').val().trim());
-            if (prev_draft) {
-                // draft matches server so discard draft
-                if (treatedDraft == treatedServer) {
-                    clearDraft();
-                } else {
-                    var draft_time = localStorage.getItem(DRAFT_NAME + '#save-time');
-                    displayDraftBox(prev_draft, draft_time);
-                }
+    function autoSaveDraft(val) {
+        if(draftAutoSaveEnabled) {
+            var currentContent = $form.find('textarea[name=content]').val();
+            var saveContent = val || currentContent;
+            var oldDraft = localStorage.getItem(DRAFT_NAME);
+
+            // it looks a little weird to save a draft when no changes are made
+            // so check that what we're trying to save doesn't match what's
+            // already saved
+            var draftMatchesDraft = contentMatches(currentContent, oldDraft);
+            // or hasn't actually changed
+            var currentMatchesStart = contentMatches(currentContent, startingContent);
+
+            if(!draftMatchesDraft && !currentMatchesStart) {
+                saveDraft(currentContent, gettext('autosaved'));
             }
         }
+    }
 
-        // Add key listener for CKEditor and drafting
-        var callback = function() {
-            clearTimeout(DRAFT_TIMEOUT_ID);
-            DRAFT_TIMEOUT_ID = setTimeout(saveDraft, 3000);
-        };
-        if(isTemplate) {
-            ace_editor.on && ace_editor.on('change', callback);
+    function clearDraft(notify) {
+        localStorage.removeItem(DRAFT_NAME);
+        localStorage.removeItem(DRAFT_NAME + '#save-time');
+        if (notify == 'publish') {
+            updateDraftState(gettext('published'));
+            enableAutoSave(false);
+        }
+        else if (notify) {
+            updateDraftState(gettext('discarded'));
+            enableAutoSave(true);
         }
         else {
-            try {
-                var $content = $('#id_content');
-                $content.ckeditorGet && $content.ckeditorGet().on('key', callback);
-            }
-            catch(e) {
-                console.log(e);
-            }
+            updateDraftState();
+            enableAutoSave(true);
         }
 
-        // Clear draft upon discard
-       $('.btn-discard').on('click', function() {
-            clearTimeout(DRAFT_TIMEOUT_ID);
-           clearDraft();
-       });
+    }
+
+    // returns true if content matches
+    // this is not perfect, CKEdtior adds white space even when the user hasn't edited
+    function contentMatches(ver1, ver2) {
+        var treatContent = function(content) {
+            // CKEditor likes to change spaces for &nbsp;
+            return content.replace(/\s/g, '&nbsp;');
+        };
+        var trim1 = $.trim(ver1);
+        var treated1 = treatContent(trim1);
+        var trim2 = $.trim(ver2);
+        var treated2 = treatContent(trim2);
+        if (treated1 == treated2) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    // change auto save status. Update variable and UI.
+    function enableAutoSave(enabled) {
+        // no change, no action needed
+        if (enabled === draftAutoSaveEnabled) { return; }
+        if (enabled === true) {
+            //update variable
+            draftAutoSaveEnabled = true;
+            autoSaveDraft();
+            // update UI
+            $draftAutoSaveStatus.show().text(gettext('Autosave enabled.')).delay(3000).fadeOut();
+            $draftAutoSaveButton.hide();
+
+        } else {
+            // update variable
+            draftAutoSaveEnabled = false;
+            // update UI
+            $draftAutoSaveStatus.show().text(gettext('Autosave disabled.')).delay(3000).fadeOut();
+            $draftAutoSaveButton.show();
+        }
+    }
+
+    // sets up drafting functionality
+    function initDrafting() {
+        var editor;
+        if (supportsLocalStorage) {
+            draftingEnabled = true;
+            DRAFT_NAME = getStorageKey();
+            // save starting content for comparison
+            startingContent = $form.find('textarea[name=content]').val();
+            // add listeners
+            $draftButton.on('click', function() {
+                // can't just pass function name because
+                // that passes click event as first parameter which breaks things
+                manualSaveDraft();
+            });
+
+            $draftAutoSaveButton.on('click', function() {
+                enableAutoSave(true);
+                return false;
+            });
+
+            // insert draft div with button
+            $draftDiv.append($draftButton);
+            $draftDiv.append(' ');
+            $draftDiv.append($draftStatus);
+            $draftDiv.append(' ');
+            $draftDiv.append($draftAutoSaveInfo);
+            $('#editor-wrapper').prepend($draftDiv);
+
+            // if there was an error publishing
+            // let the user save without making edits
+            if (isErrors) {
+                $draftButton.removeAttr('disabled');
+            }
+
+            // check for previous drafts, add recovery options
+            // but not if draft matches published version
+            var prevDraft = localStorage.getItem(DRAFT_NAME);
+            var draftMatchesStart = contentMatches(prevDraft, startingContent);
+            if (prevDraft && !draftMatchesStart) {
+                // display option to restore
+                var draft_time = localStorage.getItem(DRAFT_NAME + '#save-time');
+                displayRestoreDraft(prevDraft, draft_time);
+            }
+            else if (prevDraft && matchesStart) {
+                // don't need draft if it's a copy of the starting content
+                clearDraft(false);
+            }
+
+            // Add key listener for CKEditor and drafting
+            var callback = function() {
+                // don't save if still typing
+                clearTimeout(DRAFT_TIMEOUT_ID);
+                // begin countdown to auto save
+                DRAFT_TIMEOUT_ID = setTimeout(autoSaveDraft, 3000);
+                // unsaved changes, enable button
+                $draftButton.removeAttr('disabled');
+            };
+            if(isTemplate) {
+                if (ace_editor.on) {
+                    ace_editor.on('change', callback);
+                }
+            }
+            else {
+                try {
+                    var $content = $('#id_content');
+                    if($content.ckeditorGet) {
+                        $content.ckeditorGet().on('key', callback);
+                    }
+                }
+                catch(e) {
+                    console.log(e);
+                }
+            }
+
+            // Clear draft upon discard
+           $('.btn-discard').on('click', function() {
+                clearTimeout(DRAFT_TIMEOUT_ID);
+                clearDraft(true);
+           });
+        }
     }
 
     function initAttachmentsActions() {

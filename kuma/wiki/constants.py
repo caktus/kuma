@@ -76,6 +76,8 @@ ALLOWED_ATTRIBUTES['li'] += ['data-default-state']
 ALLOWED_ATTRIBUTES['time'] += ['datetime']
 ALLOWED_ATTRIBUTES['ins'] = ['datetime']
 ALLOWED_ATTRIBUTES['del'] = ['datetime']
+ALLOWED_ATTRIBUTES['meter'] += ['max', 'min', 'value', 'low', 'high', 'optimum',
+                                'form']
 # MathML
 ALLOWED_ATTRIBUTES.update(dict((x, ['encoding', 'src']) for x in (
     'annotation', 'annotation-xml')))
@@ -252,6 +254,7 @@ KUMA_FILE_URL = re.compile(r'%s%s/files/(?P<file_id>\d+)/' %
                             re.escape(settings.ATTACHMENT_HOST)))
 
 SPAM_EXEMPTED_FLAG = 'wiki_spam_exempted'
+SPAM_TRAINING_FLAG = 'wiki_spam_training'
 SPAM_SUBMISSION_REVISION_FIELDS = [
     'title',
     'slug',
@@ -261,6 +264,11 @@ SPAM_SUBMISSION_REVISION_FIELDS = [
     'tags',
     'keywords',
 ]
+SPAM_OTHER_HEADERS = (  # Header to send that don't start with HTTP
+    'REMOTE_ADDR',
+    'REQUEST_URI',
+    'DOCUMENT_URI',
+)
 
 CODE_SAMPLE_MACROS = [
     'LiveSampleURL',
@@ -269,3 +277,5 @@ CODE_SAMPLE_MACROS = [
     'LiveSampleLink',
     'FXOSUXLiveSampleEmbed',
 ]
+
+DEV_DOC_REQUEST_FORM = 'https://bugzilla.mozilla.org/form.doc'
